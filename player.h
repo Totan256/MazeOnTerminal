@@ -13,10 +13,10 @@ typedef struct {
     POINT prevMousePos;
 } Player;
 
-void initPlayer(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed);
-void handleInputPlayer(Player *p, double deltaTime, int map[][24]);
+void player_init(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed);
+void player_handleInput(Player *p, double deltaTime, int map[][24]);
 
-void initPlayer(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed){
+void player_init(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed){
     p->pos.x = x;
     p->pos.y = y;
     p->dir.x = dirX;
@@ -39,7 +39,7 @@ void initPlayer(Player *p, double x, double y, double dirX, double dirY, double 
     GetCursorPos(&p->lastMousePos);
 }
 
-void handleInputPlayer(Player *p, double deltaTime, int map[][24]) {
+void player_handleInput(Player *p, double deltaTime, int map[][24]) {
     double moveStep = p->moveSpeed * deltaTime;
     
     //移動

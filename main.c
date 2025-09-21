@@ -42,7 +42,7 @@ int main() {
 
     //プレイヤー情報の初期化
     Player player;
-    initPlayer(&player, 12., 12., 0., 0., 2.,0.5);
+    player_init(&player, 12., 12., 0., 0., 2.,0.5);
 
     //ゲームループ------
     while(1){
@@ -62,7 +62,7 @@ int main() {
         }
 
         {//プレイヤー入力
-            handleInputPlayer(&player, deltaTime, map);
+            player_handleInput(&player, deltaTime, map);
         }
 
         //描画用文字列用意
