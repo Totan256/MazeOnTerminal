@@ -14,7 +14,7 @@ typedef struct{
 
 }Console;
 
-void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
+void console_getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
     //ウィンドウサイズ取得
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     if (GetConsoleScreenBufferInfo(handle, &csbi)) {
@@ -23,7 +23,12 @@ void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
     }
 }
 
-BOOL initConsole(Console *c, double fps){
+void console_setScreenBuffer(Console *c){
+    free(c->screenBuffer);
+    c->screenBuffer = (CHAR_INFO*)calloc(c->windowWidth * c->windowHeight, sizeof(CHAR_INFO));
+}
+
+BOOL console_init(Console *c, double fps){
     //現在の標準出力ハンドル（元のバッファ）
     c->hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     
@@ -37,27 +42,34 @@ BOOL initConsole(Console *c, double fps){
     );
     if(c->hOriginalConsole == INVALID_HANDLE_VALUE || c->hGameConsole == INVALID_HANDLE_VALUE) {
         printf("コンソールバッファの作成に失敗しました。\n");
-        return 1;
+        exit(0);
     }
     //代替バッファをアクティブにする（画面切り替え）
     SetConsoleActiveScreenBuffer(c->hGameConsole);
 
     c->dwBytesWritten=0;
 
-    getWindowSize(&c->windowWidth, &c->windowHeight, c->hGameConsole);
-}
-
-BOOL checkWindowSize(Console *c){
-    int prevWidth, prevHeight;
-    getWindowSize(&prevWidth, &prevHeight, c->hGameConsole);
-    return (c->windowWidth!=prevWidth || c->windowHeight!=prevHeight);
-}
-
-void setScreenBuffer(Console *c){
-    free(c->screenBuffer);
+    console_getWindowSize(&c->windowWidth, &c->windowHeight, c->hGameConsole);
     c->screenBuffer = (CHAR_INFO*)calloc(c->windowWidth * c->windowHeight, sizeof(CHAR_INFO));
+    WriteConsoleW(c->hGameConsole, L"Game Start!", 11, &c->dwBytesWritten, NULL);
+    Sleep(2000);
 }
-void DrawConsole(Console *c){
+
+BOOL console_windowSizeIsChanged(Console *c){
+    int currentWidth, currentHeight;
+    console_getWindowSize(&currentWidth, &currentHeight, c->hGameConsole);
+    
+    if (c->windowWidth != currentWidth || c->windowHeight != currentHeight) {
+        // サイズが違ったら値更新
+        c->windowWidth = currentWidth;
+        c->windowHeight = currentHeight;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
+void console_draw(Console *c){
     COORD bufferSize = { (SHORT)c->windowWidth, (SHORT)c->windowHeight };
     const COORD bufferCoord = { 0, 0 };
     SMALL_RECT writeRegion = { 0, 0, (SHORT)(c->windowWidth - 1), (SHORT)(c->windowHeight - 1) };
@@ -69,7 +81,7 @@ void DrawConsole(Console *c){
         &writeRegion    // コンソールへの書き込み領域
     );
 }
-void finishConsole(Console *c){
+void console_finish(Console *c){
     //ゲーム中に溜まったキー入力破棄
     FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
     free(c->screenBuffer);

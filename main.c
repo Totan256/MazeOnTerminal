@@ -6,6 +6,7 @@
 #include "vec.h"
 #include "player.h"
 #include "rayCast.h"
+#include "console.h"
 #define FPS_TIME 60.0
 
 void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
@@ -21,28 +22,9 @@ void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
 
 
 int main() {
-    HANDLE hOriginalConsole, hGameConsole;
-    
+    Console console;
 
-    {//画面切り替え処理
-        //現在の標準出力ハンドル（元のバッファ）
-        hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        
-        //新しいスクリーンバッファ（代替バッファ）を作成
-        hGameConsole = CreateConsoleScreenBuffer(
-            GENERIC_READ | GENERIC_WRITE, //読み書き両方
-            0,//共有しない(?)
-            NULL,
-            CONSOLE_TEXTMODE_BUFFER,//テキストモード
-            NULL
-        );
-        if(hOriginalConsole == INVALID_HANDLE_VALUE || hGameConsole == INVALID_HANDLE_VALUE) {
-            printf("コンソールバッファの作成に失敗しました。\n");
-            return 1;
-        }
-        //代替バッファをアクティブにする（画面切り替え）
-        SetConsoleActiveScreenBuffer(hGameConsole);
-    }
+    console_init(&console, FPS_TIME);
 
     //時間処理の用意
     LARGE_INTEGER freq, lastTime, currentTime;
@@ -52,26 +34,17 @@ int main() {
 
     //入出力用変数
     DWORD dwBytesWritten = 0;//正直良くわからん
-    POINT mousePosition;
 
     //マップ用意
     int map[24][24];
     testMaze(map);
-    double floorHeight, ceilingHeight;//to do
 
-    //ゲーム開始
-    WriteConsoleW(hGameConsole, L"Game Start!", 11, &dwBytesWritten, NULL);
-    Sleep(2000);
 
     //プレイヤー情報の初期化
     Player player;
     initPlayer(&player, 12., 12., 0., 0., 2.,0.5);
 
     //ゲームループ------
-    int windowWidth, windowHeight;//ウィンドウサイズ
-    CHAR_INFO *screenBuffer;//描画用の文字列バッファ
-    getWindowSize(&windowWidth, &windowHeight, hGameConsole);
-    screenBuffer = (CHAR_INFO*)calloc(windowWidth * windowHeight, sizeof(CHAR_INFO));
     while(1){
         
         {//時間処理
@@ -82,30 +55,24 @@ int main() {
         }
         
         {//ウィンドウサイズ変更時にバッファを再設定して解像度を変更
-            int prevWidth, prevHeight;
-            getWindowSize(&prevWidth, &prevHeight, hGameConsole);
-            if(windowWidth!=prevWidth || windowHeight!=prevHeight){//ウィンドウサイズ変更検知
+            if(console_windowSizeIsChanged(&console)){//ウィンドウサイズ変更検知
                 //描画バッファの再設定
-                free(screenBuffer);
-                screenBuffer = (CHAR_INFO*)calloc(prevWidth * prevHeight, sizeof(CHAR_INFO));
-                windowWidth = prevWidth;
-                windowHeight = prevHeight;
+                console_setScreenBuffer(&console);
             }
         }
 
         {//プレイヤー入力
-            GetCursorPos(&mousePosition);
             handleInputPlayer(&player, deltaTime, map);
         }
 
         //描画用文字列用意
         {
             WCHAR s = L' ';
-            for (int y = 0; y < windowHeight; y++) {
-                for (int x = 0; x < windowWidth; x++) {
+            for (int y = 0; y < console.windowHeight; y++) {
+                for (int x = 0; x < console.windowWidth; x++) {
                     //uv -1~1
-                    double uvX = (x*2.-windowWidth)/min(windowHeight, windowWidth);
-                    double uvY = (y*2.-windowHeight)/min(windowHeight, windowWidth);
+                    double uvX = (x*2.-console.windowWidth)/min(console.windowHeight, console.windowWidth);
+                    double uvY = (y*2.-console.windowHeight)/min(console.windowHeight, console.windowWidth);
                     double offSet = 5.0;
                     double dirX, dirY, dirZ;
                     {//normalize
@@ -142,26 +109,15 @@ int main() {
                                 break;
                         }
                     }
-                    int id = y * windowWidth + x;
-                    screenBuffer[id].Char.UnicodeChar = s;
-                    screenBuffer[id].Attributes = col;
+                    int id = y * console.windowWidth + x;
+                    console.screenBuffer[id].Char.UnicodeChar = s;
+                    console.screenBuffer[id].Attributes = col;
                 }
             }
         }
 
         //描画
-        {
-            COORD bufferSize = { (SHORT)windowWidth, (SHORT)windowHeight };
-            COORD bufferCoord = { 0, 0 };
-            SMALL_RECT writeRegion = { 0, 0, (SHORT)(windowWidth - 1), (SHORT)(windowHeight - 1) };
-            WriteConsoleOutputW(
-                hGameConsole, // 書き込み先ハンドル
-                screenBuffer,   // 書き込むデータ (CHAR_INFO 配列)
-                bufferSize,     // データのサイズ (幅, 高さ)
-                bufferCoord,    // データの読み取り開始位置 (0, 0)
-                &writeRegion    // コンソールへの書き込み領域
-            );
-        }
+        console_draw(&console);
 
         //終了判定
         {
@@ -173,16 +129,7 @@ int main() {
         lastTime = currentTime;
     }
     //---ゲームループ終了--
-    //ゲーム中に溜まったキー入力破棄
-    FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
-    free(screenBuffer);
-    //元の標準バッファに戻す
-    SetConsoleActiveScreenBuffer(hOriginalConsole);
-
-    //代替バッファを閉じる
-    CloseHandle(hGameConsole);
-
-    system("cls");
+    console_finish(&console);
 
     printf("finish\n");
     return 0;
