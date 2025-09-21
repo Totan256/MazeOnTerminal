@@ -73,7 +73,7 @@ int main() {
                     //uv -1~1
                     double uvX = (x*2.-console.windowWidth)/min(console.windowHeight, console.windowWidth);
                     double uvY = (y*2.-console.windowHeight)/min(console.windowHeight, console.windowWidth);
-                    double offSet = 5.0;
+                    double offSet = 10.0;
                     double dirX, dirY, dirZ;
                     {//normalize
                         double length = sqrt(uvX*uvX+uvY*uvY +offSet*offSet);

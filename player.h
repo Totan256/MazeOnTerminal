@@ -24,7 +24,7 @@ void player_init(Player *p, double x, double y, double dirX, double dirY, double
     p->moveSpeed = moveSpeed;
     p->rotSpeed = rotSpeed;
     //カーソルをウィンドウ中央に
-    //うまくいかない．．．
+    //うまくいかない．．．どうやらwindowsコンソールでは無理そう
     /*
     RECT windowRect;
     HWND consoleWindow = GetConsoleWindow();
