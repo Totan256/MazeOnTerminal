@@ -36,13 +36,17 @@ int main() {
     DWORD dwBytesWritten = 0;//正直良くわからん
 
     //マップ用意
-    int map[24][24];
-    testMaze(map);
+    Map map;
+    //int map[24*24];
+    //testMaze(map);
+    maze_make(&map, 12, 12);
+    //testMaze(&map);
+
 
 
     //プレイヤー情報の初期化
     Player player;
-    player_init(&player, 12., 12., 0., 0., 2.,0.5);
+    player_init(&player, 2., 2., 0., 0., 2.,0.5);
 
     //ゲームループ------
     while(1){
@@ -62,7 +66,7 @@ int main() {
         }
 
         {//プレイヤー入力
-            player_handleInput(&player, deltaTime, map);
+            player_handleInput(&player, deltaTime, &map);
         }
 
         //描画用文字列用意
@@ -84,7 +88,7 @@ int main() {
                     rotate2double(&dirY,&dirZ, player.dir.y);
                     rotate2double(&dirX,&dirY, player.dir.x);
                     int sideFlag=1, numFlag=1;
-                    rayCast(map, 24, 24, player.pos.x,player.pos.y, 10.0, 
+                    rayCast(&map, player.pos.x,player.pos.y, 10.0, 
                         dirX, dirY, dirZ, &sideFlag, &numFlag, 0.8, 0.4);
                     WORD col;
                     {

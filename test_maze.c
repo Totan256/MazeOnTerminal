@@ -2,171 +2,172 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include <windows.h> // 色付けのために追加
 
-// --- 定数定義 ---
-// 迷路のサイズをここで定義
-#define MAZE_WIDTH 30
-#define MAZE_HEIGHT 16
-
-// 壁の方向を示す定数 (可読性向上のため)
-#define WALL_DIR_HORIZONTAL 1
-#define WALL_DIR_VERTICAL 2
-
-// --- データ構造の定義 ---
-
-// 「壊せる壁の候補」を管理するための構造体
-// h_x, h_y, h_n のようなバラバラの配列を一つにまとめる
+// --- データ構造 (変更なし) ---
 typedef struct {
     int x;
     int y;
-    int direction; // WALL_DIR_HORIZONTAL または WALL_DIR_VERTICAL
+    int direction;
 } WallCandidate;
 
-
-// --- 関数のプロトタイプ宣言 ---
-
-void initializeMaze(int groupIDs[MAZE_WIDTH][MAZE_HEIGHT], int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT]);
-void generateMaze(int groupIDs[MAZE_WIDTH][MAZE_HEIGHT], int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT]);
-void prepareDrawBuffer(int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT], bool drawBuffer[MAZE_WIDTH * 2][MAZE_HEIGHT * 2]);
-void drawMaze(bool drawBuffer[MAZE_WIDTH * 2][MAZE_HEIGHT * 2]);
-
-
-// --- メイン関数 ---
-
-int main() {
-    // 乱数の初期化 (プログラムの最初で一度だけ呼び出すのが定石)
-    srand((unsigned int)time(NULL));
-
-    // 迷路データを格納する2次元配列
-    int groupIDs[MAZE_WIDTH][MAZE_HEIGHT];  // 各マスのグループIDを管理
-    int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT]; // 壁の状態を管理 (0:通路, 1:右壁, 2:下壁, 3:右下壁)
-
-    // 描画用のバッファ
-    bool drawBuffer[MAZE_WIDTH * 2][MAZE_HEIGHT * 2];
-
-    // 処理を関数として呼び出す
-    initializeMaze(groupIDs, mazeWalls);
-    generateMaze(groupIDs, mazeWalls);
-    prepareDrawBuffer(mazeWalls, drawBuffer);
-    drawMaze(drawBuffer);
-
-    return 0;
-}
-
-
-// --- 各関数の実装 ---
-
-/**
- * @brief 迷路を初期状態にする（すべてのマスを壁で区切り、個別のグループIDを割り当てる）
- */
-void initializeMaze(int groupIDs[MAZE_WIDTH][MAZE_HEIGHT], int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT]) {
-    int currentID = 0;
-    for (int y = 0; y < MAZE_HEIGHT; y++) {
-        for (int x = 0; x < MAZE_WIDTH; x++) {
-            mazeWalls[x][y] = 3; // 3は「右と下に壁がある」という意味
-            groupIDs[x][y] = currentID;
-            currentID++;
-        }
+// --- 迷路生成 (変更なし) ---
+void GenerateMaze(int* mazeMap, int width, int height) {
+    int* groupIDs = (int*)malloc(width * height * sizeof(int));
+    WallCandidate* candidates = (WallCandidate*)malloc(width * height * 2 * sizeof(WallCandidate));
+    if (groupIDs == NULL || candidates == NULL) { return; }
+    for (int i = 0; i < width * height; i++) {
+        mazeMap[i] = 3;
+        groupIDs[i] = i;
     }
-}
-
-/**
- * @brief クラスカル法を応用して迷路を生成する
- */
-void generateMaze(int groupIDs[MAZE_WIDTH][MAZE_HEIGHT], int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT]) {
-    // 最大の壁候補数 (多めに確保)
-    WallCandidate wallCandidates[MAZE_WIDTH * MAZE_HEIGHT * 2];
-    int totalGroups = MAZE_WIDTH * MAZE_HEIGHT;
-
-    // グループが一つになるまでループ
+    int totalGroups = width * height;
     while (totalGroups > 1) {
         int candidateCount = 0;
-
-        // 1. 壊せる壁の候補をリストアップする
-        for (int y = 0; y < MAZE_HEIGHT; y++) {
-            for (int x = 0; x < MAZE_WIDTH; x++) {
-                // 右隣のマスとグループが違うなら、右の壁を候補に追加
-                if (x < MAZE_WIDTH - 1 && groupIDs[x][y] != groupIDs[x + 1][y]) {
-                    wallCandidates[candidateCount++] = (WallCandidate){x, y, WALL_DIR_HORIZONTAL};
-                }
-                // 下隣のマスとグループが違うなら、下の壁を候補に追加
-                if (y < MAZE_HEIGHT - 1 && groupIDs[x][y] != groupIDs[x][y + 1]) {
-                    wallCandidates[candidateCount++] = (WallCandidate){x, y, WALL_DIR_VERTICAL};
-                }
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int idx = y * width + x;
+                if (x < width - 1 && groupIDs[idx] != groupIDs[idx + 1])
+                    candidates[candidateCount++] = (WallCandidate){x, y, 1};
+                if (y < height - 1 && groupIDs[idx] != groupIDs[idx + width])
+                    candidates[candidateCount++] = (WallCandidate){x, y, 2};
             }
         }
-        
-        // 2. 候補の中からランダムに壁を1つ選んで壊す
-        int randomIndex = rand() % candidateCount;
-        WallCandidate chosenWall = wallCandidates[randomIndex];
-        
-        int x = chosenWall.x;
-        int y = chosenWall.y;
-        
+        if (candidateCount == 0) break;
+        int randIdx = rand() % candidateCount;
+        WallCandidate wall = candidates[randIdx];
+        int wallIdx = wall.y * width + wall.x;
         int groupToMerge;
-        int targetGroup = groupIDs[x][y];
-
-        if (chosenWall.direction == WALL_DIR_HORIZONTAL) {
-            mazeWalls[x][y] -= WALL_DIR_HORIZONTAL; // 右の壁を壊す
-            groupToMerge = groupIDs[x + 1][y];
-        } else { // WALL_DIR_VERTICAL
-            mazeWalls[x][y] -= WALL_DIR_VERTICAL; // 下の壁を壊す
-            groupToMerge = groupIDs[x][y + 1];
+        int targetGroup = groupIDs[wallIdx];
+        if (wall.direction == 1) {
+            mazeMap[wallIdx] -= 1;
+            groupToMerge = groupIDs[wallIdx + 1];
+        } else {
+            mazeMap[wallIdx] -= 2;
+            groupToMerge = groupIDs[wallIdx + width];
         }
+        for (int i = 0; i < width * height; i++) {
+            if (groupIDs[i] == groupToMerge) groupIDs[i] = targetGroup;
+        }
+        totalGroups--;
+    }
+    free(groupIDs);
+    free(candidates);
+}
 
-        // 3. 2つのグループを統合する (マップ全体をスキャンしてIDを書き換える)
-        for (int row = 0; row < MAZE_HEIGHT; row++) {
-            for (int col = 0; col < MAZE_WIDTH; col++) {
-                if (groupIDs[col][row] == groupToMerge) {
-                    groupIDs[col][row] = targetGroup;
-                }
+
+// --- ここからが変更・追加された関数 ---
+
+/**
+ * @brief 迷路の壁情報マップを、色情報付きの2値マップに変換する
+ * @param binaryMap 変換結果。0:通路, 1:外周壁, 2以上:色付き壁
+ */
+void ConvertMazeToBinaryWithColor(const int* mazeMap, int width, int height, int* binaryMap) {
+    int bWidth = width * 2 + 1;
+    int bHeight = height * 2 + 1;
+
+    // 1. まず、マップ全体を外周の壁(1)で埋める
+    for (int i = 0; i < bWidth * bHeight; i++) {
+        binaryMap[i] = 1;
+    }
+
+    // 2. 壁情報マップを元に、通路(0)と色付きの壁(2以上)を配置していく
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int mazeIndex = y * width + x;
+            
+            // このセルが元々属していた初期グループIDに基づいて色を決定
+            // (例: 6色で循環させる。+2は通路(0)と外周壁(1)を避けるため)
+            int colorID = (mazeIndex % 6) + 2;
+
+            int bX = x * 2 + 1;
+            int bY = y * 2 + 1;
+
+            // マスの中心は常通路
+            binaryMap[bY * bWidth + bX] = 0;
+
+            // 右に壁があるかどうか
+            if ((mazeMap[mazeIndex] & 1) != 0) {
+                binaryMap[bY * bWidth + (bX + 1)] = colorID;
+            } else if (x < width - 1) { // 壁がなく通路の場合
+                binaryMap[bY * bWidth + (bX + 1)] = 0;
+            }
+
+            // 下に壁があるかどうか
+            if ((mazeMap[mazeIndex] & 2) != 0) {
+                 binaryMap[(bY + 1) * bWidth + bX] = colorID;
+            } else if (y < height - 1) { // 壁がなく通路の場合
+                binaryMap[(bY + 1) * bWidth + bX] = 0;
             }
         }
-
-        totalGroups--; // グループの総数を1つ減らす
     }
 }
 
 
 /**
- * @brief 迷路の壁データを、描画用のバッファに変換する
+ * @brief 生成された色情報付き2値マップをコンソールにカラーで描画する
  */
-void prepareDrawBuffer(int mazeWalls[MAZE_WIDTH][MAZE_HEIGHT], bool drawBuffer[MAZE_WIDTH * 2][MAZE_HEIGHT * 2]) {
-    for (int y = 0; y < MAZE_HEIGHT; y++) {
-        for (int x = 0; x < MAZE_WIDTH; x++) {
-            int drawX = x * 2;
-            int drawY = y * 2;
-            drawBuffer[drawX][drawY] = false; // マスの中は常通路
-            drawBuffer[drawX + 1][drawY] = (mazeWalls[x][y] % 2 == 1); // 右の壁
-            drawBuffer[drawX][drawY + 1] = (mazeWalls[x][y] >= 2);   // 下の壁
-            drawBuffer[drawX + 1][drawY + 1] = true;              // マスの角は常に壁
-        }
-    }
-}
-
-/**
- * @brief 描画用バッファの内容をコンソールに出力する
- */
-void drawMaze(bool drawBuffer[MAZE_WIDTH * 2][MAZE_HEIGHT * 2]) {
-    // 上の枠線
-    for (int x = 0; x < MAZE_WIDTH * 2 + 1; x++) {
-        printf("@");
-    }
-    printf("\n");
-
-    // 迷路本体
-    for (int y = 0; y < MAZE_HEIGHT * 2; y++) {
-        printf("@"); // 左の枠線
-        for (int x = 0; x < MAZE_WIDTH * 2; x++) {
-            if (drawBuffer[x][y] == false) {
+void printColoredBinaryMap(const int* binaryMap, int bWidth, int bHeight) {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    const WORD colors[] = {
+        FOREGROUND_RED | FOREGROUND_INTENSITY,   // Color ID 2
+        FOREGROUND_GREEN | FOREGROUND_INTENSITY, // Color ID 3
+        FOREGROUND_BLUE | FOREGROUND_INTENSITY,  // Color ID 4
+        FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY, // Color ID 5 (Yellow)
+        FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY,  // Color ID 6 (Magenta)
+        FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY // Color ID 7 (Cyan)
+    };
+    
+    for (int y = 0; y < bHeight; y++) {
+        for (int x = 0; x < bWidth; x++) {
+            int cellValue = binaryMap[y * bWidth + x];
+            if (cellValue == 0) { // 通路
                 printf(" ");
-            } else {
+            } else { // 壁
+                // 壁の値(1:外周, 2-7:色付き)に応じて色を設定
+                if (cellValue >= 2 && cellValue <= 7) {
+                    SetConsoleTextAttribute(hConsole, colors[cellValue - 2]);
+                } else {
+                    // デフォルトの色 (白)
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+                }
                 printf("@");
             }
         }
         printf("\n");
     }
+    // 最後に色を元に戻す
+    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
 
-    
-    printf("\n");
+
+// --- メイン関数 (テスト用) ---
+int main() {
+    srand((unsigned int)time(NULL));
+
+    int mazeWidth = 30;
+    int mazeHeight = 15;
+
+    int binaryMapWidth = mazeWidth * 2 + 1;
+    int binaryMapHeight = mazeHeight * 2 + 1;
+
+    int* mazeData = (int*)malloc(mazeWidth * mazeHeight * sizeof(int));
+    int* binaryMap = (int*)malloc(binaryMapWidth * binaryMapHeight * sizeof(int));
+
+    if (mazeData == NULL || binaryMap == NULL) { return 1; }
+
+    // 1. 迷路の構造を生成
+    GenerateMaze(mazeData, mazeWidth, mazeHeight);
+
+    // 2. 迷路構造を元に、色情報付きの2値マップに変換
+    ConvertMazeToBinaryWithColor(mazeData, mazeWidth, mazeHeight, binaryMap);
+
+    // 3. 色付きマップを画面に表示して確認
+    printf("Generated Colored Binary Maze Map:\n");
+    printColoredBinaryMap(binaryMap, binaryMapWidth, binaryMapHeight);
+
+    // 4. メモリを解放
+    free(mazeData);
+    free(binaryMap);
+
+    return 0;
 }

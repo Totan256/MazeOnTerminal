@@ -1,8 +1,9 @@
 #pragma once
 #include <math.h>
-//参考きｊhttps://lodev.org/cgtutor/raycasting.html
+#include "maze.h"
+//参考記事https://lodev.org/cgtutor/raycasting.html
 
-double rayCast(int map[][24],int mapSizeX, int mapSizeY, 
+double rayCast(Map *map, 
                 double playerX, double playerY, double playerZ,
                 double rayDirX, double rayDirY, double rayDirZ,
                 int *sideFlag, int *hitNumFlag,
@@ -46,9 +47,10 @@ double rayCast(int map[][24],int mapSizeX, int mapSizeY,
         }
         
         //マスが壁かチェック
-        if (map[mapX][mapY] > 0) {
+        int num = maze_getNum(map, mapX, mapY);
+        if (num > 0) {
             hit = 1;
-            *hitNumFlag = map[mapX][mapY];
+            *hitNumFlag = num;
         }
     }
 
