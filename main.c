@@ -18,13 +18,10 @@ void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
     }
 }
 
-
-
-
 int main() {
     Console console;
 
-    console_init(&console, FPS_TIME);
+    console_init(&console);
 
     //時間処理の用意
     LARGE_INTEGER freq, lastTime, currentTime;
@@ -32,17 +29,12 @@ int main() {
     QueryPerformanceFrequency(&freq);//タイマーの周波数
     QueryPerformanceCounter(&lastTime);//基準時間
 
-    //入出力用変数
-    DWORD dwBytesWritten = 0;//正直良くわからん
-
     //マップ用意
     Map map;
     //int map[24*24];
     //testMaze(map);
-    maze_make(&map, 12, 12);
+    maze_ganarate(&map, 3, 3);
     //testMaze(&map);
-
-
 
     //プレイヤー情報の初期化
     Player player;
@@ -77,7 +69,7 @@ int main() {
                     //uv -1~1
                     double uvX = (x*2.-console.windowWidth)/min(console.windowHeight, console.windowWidth);
                     double uvY = (y*2.-console.windowHeight)/min(console.windowHeight, console.windowWidth);
-                    double offSet = 10.0;
+                    double offSet = 2.0;
                     double dirX, dirY, dirZ;
                     {//normalize
                         double length = sqrt(uvX*uvX+uvY*uvY +offSet*offSet);

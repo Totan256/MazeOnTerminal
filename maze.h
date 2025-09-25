@@ -162,7 +162,7 @@ void printBinaryMap(Map *map, int bWidth, int bHeight) {
         printf("\n");
     }
 }
-void maze_make(Map *map, int width, int height){
+void maze_ganarate(Map *map, int width, int height){
     srand((unsigned int)time(NULL));
 
     // 2値マップのサイズを計算

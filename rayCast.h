@@ -35,6 +35,8 @@ double rayCast(Map *map,
     int hit = 0;//当たり判定フラグ
     int side;//X面(0)Y面(1)　どちらに当たったかのフラグ
 
+    const int wallFlagNum = -1;
+
     while (hit == 0) {
         if (sideDistX < sideDistY) {//Xグリッドに当たった
             sideDistX += deltaDistX;
@@ -71,14 +73,14 @@ double rayCast(Map *map,
         distCelling = (1.0 / rayDirZ) * heightCelling;
         if(distCelling < true3DWallDist){
             //perpWallDist = dist
-            *hitNumFlag = -1; // 天井
+            *hitNumFlag = wallFlagNum; // 天井
         }
     }else if(rayDirZ < 0){
         double distFloor;
         distFloor = -(1.0 / rayDirZ) * heightFloor;
         if(distFloor < true3DWallDist){
             //perpWallDist = distFloor;
-            *hitNumFlag = -1; // 床
+            *hitNumFlag = wallFlagNum; // 床
         }
     }
     

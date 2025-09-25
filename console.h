@@ -28,7 +28,7 @@ void console_setScreenBuffer(Console *c){
     c->screenBuffer = (CHAR_INFO*)calloc(c->windowWidth * c->windowHeight, sizeof(CHAR_INFO));
 }
 
-BOOL console_init(Console *c, double fps){
+BOOL console_init(Console *c){
     //現在の標準出力ハンドル（元のバッファ）
     c->hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     
