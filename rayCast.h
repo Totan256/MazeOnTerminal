@@ -1,8 +1,34 @@
 #pragma once
 #include <math.h>
+#include "vec.h"
 #include "maze.h"
-//参考記事https://lodev.org/cgtutor/raycasting.html
 
+//平面との距離と交点座標計算，返り値がマイナスなら非接触
+double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNormal, dvec3 *encountPos){
+    double denominator = vec_dot3D(rayDir, planeNormal);
+
+    //内積がほぼ0の場合で平行
+    if (fabs(denominator) < 1e-6) {
+        return false;
+    }
+
+    dvec3 playerToPlane = vec_sub3D(planePos, rayPos);
+
+    double t = vec_dot3D(playerToPlane, planeNormal) / denominator;
+
+    // 距離tが負の場合、交点はプレイヤーの後ろ側
+    if (t >= 0) {
+        encountPos->x = rayPos.x + rayDir.x * t;
+        encountPos->y = rayPos.y + rayDir.y * t;
+        encountPos->z = rayPos.z + rayDir.z * t;
+    }
+    
+    return t;
+}
+
+
+//参考記事https://lodev.org/cgtutor/raycasting.html
+//２次元配列のマップに対して壁との距離と，X・Y平面のどちらにあたったかと，壁のナンバーを計算
 double rayCast(Map *map, 
                 double playerX, double playerY, double playerZ,
                 double rayDirX, double rayDirY, double rayDirZ,

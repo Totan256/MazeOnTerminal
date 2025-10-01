@@ -17,28 +17,36 @@ typedef struct {
     int x, y, z;
 } ivec3;
 
-void rotate2D(dvec2 *n, double angle){
+void vec_rotate2D(dvec2 *n, double angle){
     double oldX = n->x;
     n->x = n->x * cos(angle) - n->y * sin(angle);
     n->y = oldX   * sin(angle) + n->y * cos(angle);
 }
 
-void rotate2double(double *x, double *y, double angle){
+void vec_rotate2double(double *x, double *y, double angle){
     double oldX = *x;
     *x = *x * cos(angle) - *y * sin(angle);
     *y = oldX   * sin(angle) + *y * cos(angle);
 }
 
-float length2D(dvec2 n){
+float vec_length2D(dvec2 n){
     return sqrt(n.x*n.x + n.y*n.y);
 }
 
-void normalize2D(dvec2 *n){
-    float len = length2D(*n);
+void vec_normalize2D(dvec2 *n){
+    float len = vec_length2D(*n);
     if(len==0){
         n->x=n->y=1e30;
         return;
     }
     n->x/=len;
     n->y/=len;
+}
+
+double vec_dot3D(dvec3 a, dvec3 b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+dvec3 vec_sub3D(dvec3 a, dvec3 b) {
+    return (dvec3){a.x - b.x, a.y - b.y, a.z - b.z};
 }

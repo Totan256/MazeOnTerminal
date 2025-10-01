@@ -9,14 +9,6 @@
 #include "console.h"
 #define FPS_TIME 60.0
 
-void getWindowSize(int *windowWidth, int *windowHeight, HANDLE handle ){
-    //ウィンドウサイズ取得
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    if (GetConsoleScreenBufferInfo(handle, &csbi)) {
-        *windowWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-        *windowHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-    }
-}
 
 int main() {
     Console console;
@@ -31,10 +23,8 @@ int main() {
 
     //マップ用意
     Map map;
-    //int map[24*24];
-    //testMaze(map);
     maze_ganarate(&map, 3, 3);
-    //testMaze(&map);
+    //testMaze(&map);  //test用
 
     //プレイヤー情報の初期化
     Player player;
@@ -77,8 +67,8 @@ int main() {
                         dirY = offSet/length;
                         dirZ = uvY/length;
                     }
-                    rotate2double(&dirY,&dirZ, player.dir.y);
-                    rotate2double(&dirX,&dirY, player.dir.x);
+                    vec_rotate2double(&dirY,&dirZ, player.dir.y);
+                    vec_rotate2double(&dirX,&dirY, player.dir.x);
                     int sideFlag=1, numFlag=1;
                     rayCast(&map, player.pos.x,player.pos.y, 10.0, 
                         dirX, dirY, dirZ, &sideFlag, &numFlag, 0.8, 0.4);
