@@ -123,26 +123,26 @@ void ConvertMazeToBinary(const int* mazeMap, int width, int height, int* binaryM
     int bWidth = width * 2 + 1;
     int bHeight = height * 2 + 1;
 
-    // 1. まず、マップ全体を壁(1)で埋める
+    //マップ全体を壁(1)で埋める
     for (int i = 0; i < bWidth * bHeight; i++) {
         binaryMap[i] = 1;
     }
 
-    // 2. 壁情報マップを元に、通路(0)を削っていく
+    //壁情報マップを元に通路(0)を削る
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int mazeIndex = y * width + x;
             int bX = x * 2 + 1;
             int bY = y * 2 + 1;
 
-            // 各マスの中心は常通路
+            //各マスの中心は常に通路
             binaryMap[bY * bWidth + bX] = 0;
 
-            // 右に壁がない場合、右の通路を削る
+            //右に壁がない場合右の通路を削る
             if ((mazeMap[mazeIndex] & 1) == 0 && x < width - 1) {
                 binaryMap[bY * bWidth + (bX + 1)] = 0;
             }
-            // 下に壁がない場合、下の通路を削る
+            //下に壁がない場合下の通路を削る
             if ((mazeMap[mazeIndex] & 2) == 0 && y < height - 1) {
                 binaryMap[(bY + 1) * bWidth + bX] = 0;
             }
@@ -150,13 +150,10 @@ void ConvertMazeToBinary(const int* mazeMap, int width, int height, int* binaryM
     }
 }
 
-// --- 以下は、この関数の使い方を示すサンプル ---
-
-// 生成された迷路を描画するテスト用関数
+//生成された迷路描画するテスト用
 void printBinaryMap(Map *map, int bWidth, int bHeight) {
     for (int y = 0; y < bHeight; y++) {
         for (int x = 0; x < bWidth; x++) {
-            // 壁なら"口", 通路なら"　"を描画
             printf("%s", maze_getNum(map, x,y) == 0 ? " " : "@");
         }
         printf("\n");
@@ -165,7 +162,7 @@ void printBinaryMap(Map *map, int bWidth, int bHeight) {
 void maze_ganarate(Map *map, int width, int height){
     srand((unsigned int)time(NULL));
 
-    // 2値マップのサイズを計算
+    //2値マップのサイズ計算
     map->width = width * 2 + 1;
     map->height = height * 2 + 1;
 
@@ -178,10 +175,10 @@ void maze_ganarate(Map *map, int width, int height){
         exit(1);
     }
 
-    // 1. 迷路を生成
+    //迷路生成
     GenerateMaze(wallData, width, height);
 
-    // 2. 壁情報マップを2値マップに変換
+    //マス調に変換
     ConvertMazeToBinary(wallData, width, height, map->Data);
 
     // 3. 2値マップを画面に表示して確認

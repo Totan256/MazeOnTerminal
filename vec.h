@@ -43,10 +43,30 @@ void vec_normalize2D(dvec2 *n){
     n->y/=len;
 }
 
+double vec_dot2D(dvec2 a, dvec2 b) {
+    return a.x * b.x + a.y * b.y;
+}
+
 double vec_dot3D(dvec3 a, dvec3 b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+dvec3 vec_cross(dvec3 a, dvec3 b) {
+    return (dvec3){
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+dvec3 vec_add3D(dvec3 a, dvec3 b) {
+    return (dvec3){a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
 dvec3 vec_sub3D(dvec3 a, dvec3 b) {
     return (dvec3){a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+dvec3 vec_mul3D(dvec3 a, dvec3 b) {
+    return (dvec3){a.x * b.x, a.y * b.y, a.z * b.z};
 }

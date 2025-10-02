@@ -3,6 +3,24 @@
 #include "vec.h"
 #include "maze.h"
 
+//平面上のuv計算．normalは正規化されたものを使う
+dvec2 rayCast_calcUV(dvec3 encountPos, dvec3 planeOrigin, dvec3 normal){
+    const dvec3 up = (dvec3){0.0, 1.0, 0.0};
+    
+    dvec3 u;
+    if (normal.x * normal.x + normal.z * normal.z < 1e-6) {//完全に真上or真下
+        const dvec3 forward_axis = {0.0, 0.0, 1.0};
+        u = vec_cross(forward_axis, normal);
+    } else {
+        u = vec_cross(up, normal);
+    }    
+    dvec3 v = vec_cross(normal, u);
+
+    dvec3 d = vec_sub3D(encountPos, planeOrigin);
+
+    return (dvec2){vec_dot3D(d,u), vec_dot3D(d,v)};
+}
+
 //平面との距離と交点座標計算，返り値がマイナスなら非接触
 double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNormal, dvec3 *encountPos){
     double denominator = vec_dot3D(rayDir, planeNormal);
@@ -29,7 +47,7 @@ double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNor
 
 //参考記事https://lodev.org/cgtutor/raycasting.html
 //２次元配列のマップに対して壁との距離と，X・Y平面のどちらにあたったかと，壁のナンバーを計算
-double rayCast(Map *map, 
+double rayCast_map(Map *map, 
                 double playerX, double playerY, double playerZ,
                 double rayDirX, double rayDirY, double rayDirZ,
                 int *sideFlag, int *hitNumFlag,

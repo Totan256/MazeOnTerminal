@@ -7,6 +7,7 @@
 #include "player.h"
 #include "rayCast.h"
 #include "console.h"
+#include "design.h"
 #define FPS_TIME 60.0
 
 
@@ -70,31 +71,9 @@ int main() {
                     vec_rotate2double(&dirY,&dirZ, player.dir.y);
                     vec_rotate2double(&dirX,&dirY, player.dir.x);
                     int sideFlag=1, numFlag=1;
-                    rayCast(&map, player.pos.x,player.pos.y, 10.0, 
+                    rayCast_map(&map, player.pos.x,player.pos.y, 10.0, 
                         dirX, dirY, dirZ, &sideFlag, &numFlag, 0.8, 0.4);
-                    WORD col;
-                    {
-                        switch (numFlag) {
-                            case -1:
-                                col = BACKGROUND_RED | BACKGROUND_BLUE;
-                                break;
-                            case 1:
-                            case 2:
-                            case 3:
-                            case 4:
-                            case 5:
-                                if(sideFlag==1)
-                                    col = col = BACKGROUND_BLUE | BACKGROUND_INTENSITY;
-                                else
-                                    col = col = BACKGROUND_BLUE;
-                                break;
-
-                            default:
-                                //デバッグ用
-                                col = BACKGROUND_RED;
-                                break;
-                        }
-                    }
+                    WORD col = design_map(numFlag, sideFlag);
                     int id = y * console.windowWidth + x;
                     console.screenBuffer[id].Char.UnicodeChar = s;
                     console.screenBuffer[id].Attributes = col;
