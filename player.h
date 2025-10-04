@@ -5,21 +5,22 @@
 #include <windows.h>
 
 typedef struct {
-    dvec2 pos;
+    dvec3 pos;
     dvec2 dir;
-    dvec2 plane;
+    //dvec2 plane;
     double moveSpeed;
     double rotSpeed;
     POINT lastMousePos;
     POINT prevMousePos;
 } Player;
 
-void player_init(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed);
+void player_init(Player *p, dvec3 pos, double dirX, double dirY, double moveSpeed, double rotSpeed);
 void player_handleInput(Player *p, double deltaTime, Map *map);
 
-void player_init(Player *p, double x, double y, double dirX, double dirY, double moveSpeed, double rotSpeed){
-    p->pos.x = x;
-    p->pos.y = y;
+void player_init(Player *p, dvec3 pos, double dirX, double dirY, double moveSpeed, double rotSpeed){
+    p->pos.x = pos.x;
+    p->pos.y = pos.y;
+    p->pos.z = pos.z;
     p->dir.x = dirX;
     p->dir.y = dirY;
     p->moveSpeed = moveSpeed;
@@ -94,6 +95,6 @@ void player_handleInput(Player *p, double deltaTime, Map *map) {
     float deltaMousePosY = p->prevMousePos.y - p->lastMousePos.y;
     p->lastMousePos = (POINT){p->prevMousePos.x, p->prevMousePos.y};
     p->dir.x -= deltaMousePosX*rotStep;
-    p->dir.y += deltaMousePosY*rotStep;
+    p->dir.y -= deltaMousePosY*rotStep;
     
 }

@@ -22,6 +22,11 @@ int main() {
     QueryPerformanceFrequency(&freq);//タイマーの周波数
     QueryPerformanceCounter(&lastTime);//基準時間
 
+    //ゴールポータルの設定
+    dvec3 portalPos = {1.5, 1.5, 0.1};   // ポータルの中心座標
+    dvec3 portalNormal = {1., 0., 0.0}; // ポータルの向き(法線ベクトル)
+    vec_normalize3D(&portalNormal);
+
     //マップ用意
     Map map;
     maze_ganarate(&map, 3, 3);
@@ -29,7 +34,7 @@ int main() {
 
     //プレイヤー情報の初期化
     Player player;
-    player_init(&player, 1., 1., 0., 0., 2.,0.5);
+    player_init(&player, (dvec3){1.5,1.5,0.0}, 0., 0., 2.,0.5);
 
     //ゲームループ------
     while(1){
@@ -48,37 +53,49 @@ int main() {
             }
         }
 
+        {
+            //portalPos.z-=0.01;
+        }
+
         {//プレイヤー入力
             player_handleInput(&player, deltaTime, &map);
         }
 
         //描画用文字列用意
         {
-            WCHAR s = L' ';
             for (int y = 0; y < console.windowHeight; y++) {
                 for (int x = 0; x < console.windowWidth; x++) {
                     //uv -1~1
                     double uvX = (x*2.-console.windowWidth)/min(console.windowHeight, console.windowWidth);
-                    double uvY = (y*2.-console.windowHeight)/min(console.windowHeight, console.windowWidth);
+                    double uvY = (console.windowHeight - y*2.0)/min(console.windowHeight, console.windowWidth);
                     double offSet = 2.0;
-                    double dirX, dirY, dirZ;
+                    
                     dvec3 rayDirection = (dvec3){uvX, offSet, uvY};
+                    dvec3 rayPosition = (dvec3){player.pos.x,player.pos.y, 0.0};
                     vec_normalize3D(&rayDirection);
-                    {//normalize
-                        double length = sqrt(uvX*uvX+uvY*uvY +offSet*offSet);
-                        dirX = uvX/length;
-                        dirY = offSet/length;
-                        dirZ = uvY/length;
-                    }
-                    vec_rotate2double(&dirY,&dirZ, player.dir.y);
-                    vec_rotate2double(&dirX,&dirY, player.dir.x);
                     vec_rotate2double(&rayDirection.y,&rayDirection.z, player.dir.y);
                     vec_rotate2double(&rayDirection.x,&rayDirection.y, player.dir.x);
-                    //rayCast_sprite((dvec3){}, (dvec3){},(dvec3){},(dvec3){},&(dvec3){});
+                    
                     int sideFlag=1, numFlag=1;
-                    rayCast_map(&map, (dvec3){player.pos.x,player.pos.y, 10.0}, 
-                        (dvec3){dirX,dirY,dirZ}, &sideFlag, &numFlag, 0.8, 0.4);
+                    double wallDist;
+                    wallDist = rayCast_map(&map, rayPosition, rayDirection, &sideFlag, &numFlag, 0.4, 0.8);
+                        
                     WORD col = design_map(numFlag, sideFlag);
+
+                    WCHAR s = L' ';
+                    dvec3 encountPos;
+                    double portalDist;
+                    portalDist = rayCast_sprite(rayPosition,rayDirection, portalPos, portalNormal, &encountPos);
+                    if(0 <= portalDist && portalDist < wallDist){//壁よりポータルが近い
+                        dvec2 portalUV;
+                        //s = '@';//test
+                        rayCast_calcUV(encountPos, portalPos, portalNormal, &portalUV);
+                        //if(portalUV.y < 0.0){
+                        if(design_portal(portalUV) != 0){
+                            col = BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED;
+                        }
+                    }
+
                     int id = y * console.windowWidth + x;
                     console.screenBuffer[id].Char.UnicodeChar = s;
                     console.screenBuffer[id].Attributes = col;

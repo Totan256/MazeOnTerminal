@@ -74,14 +74,14 @@ dvec3 vec_cross(dvec3 a, dvec3 b) {
     };
 }
 
-dvec3 vec_add3D(dvec3 a, dvec3 b) {
-    return (dvec3){a.x + b.x, a.y + b.y, a.z + b.z};
+void vec_add3D(dvec3 a, dvec3 b, dvec3 *v) {
+    *v = (dvec3){a.x + b.x, a.y + b.y, a.z + b.z};
 }
 
-dvec3 vec_sub3D(dvec3 a, dvec3 b) {
-    return (dvec3){a.x - b.x, a.y - b.y, a.z - b.z};
+void vec_sub3D(dvec3 a, dvec3 b, dvec3 *v) {
+    *v = (dvec3){a.x - b.x, a.y - b.y, a.z - b.z};
 }
 
-dvec3 vec_mul3D(dvec3 a, dvec3 b) {
-    return (dvec3){a.x * b.x, a.y * b.y, a.z * b.z};
+void vec_mul3D(dvec3 a, dvec3 b, dvec3 *v) {
+    *v = (dvec3){a.x * b.x, a.y * b.y, a.z * b.z};
 }

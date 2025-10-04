@@ -4,7 +4,7 @@
 #include "maze.h"
 
 //平面上のuv計算．normalは正規化されたものを使う
-dvec2 rayCast_calcUV(dvec3 encountPos, dvec3 planeOrigin, dvec3 normal){
+void rayCast_calcUV(dvec3 encountPos, dvec3 planePos, dvec3 normal, dvec2 *uv){
     const dvec3 up = (dvec3){0.0, 1.0, 0.0};
     
     dvec3 u;
@@ -16,9 +16,11 @@ dvec2 rayCast_calcUV(dvec3 encountPos, dvec3 planeOrigin, dvec3 normal){
     }    
     dvec3 v = vec_cross(normal, u);
 
-    dvec3 d = vec_sub3D(encountPos, planeOrigin);
+    dvec3 d;
+    vec_sub3D(encountPos, planePos, &d);
 
-    return (dvec2){vec_dot3D(d,u), vec_dot3D(d,v)};
+    uv->x = vec_dot3D(d,u);
+    uv->y = vec_dot3D(d,v);
 }
 
 //平面との距離と交点座標計算，返り値がマイナスなら非接触
@@ -27,10 +29,11 @@ double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNor
 
     //内積がほぼ0の場合で平行
     if (fabs(denominator) < 1e-6) {
-        return false;
+        return -1;
     }
 
-    dvec3 playerToPlane = vec_sub3D(planePos, rayPos);
+    dvec3 playerToPlane;
+    vec_sub3D(planePos, rayPos, &playerToPlane);
 
     double t = vec_dot3D(playerToPlane, planeNormal) / denominator;
 
@@ -114,15 +117,15 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
         double distCelling;
         distCelling = (1.0 / rayDir.z) * heightCelling;
         if(distCelling < true3DWallDist){
-            //perpWallDist = dist
-            *hitNumFlag = wallFlagNum; // 天井
+            perpWallDist = distCelling;
+            *hitNumFlag = -1; // 天井
         }
     }else if(rayDir.z < 0){
         double distFloor;
         distFloor = -(1.0 / rayDir.z) * heightFloor;
         if(distFloor < true3DWallDist){
-            //perpWallDist = distFloor;
-            *hitNumFlag = wallFlagNum; // 床
+            perpWallDist = distFloor;
+            *hitNumFlag = -2; // 床
         }
     }
     
