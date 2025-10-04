@@ -29,7 +29,7 @@ int main() {
 
     //プレイヤー情報の初期化
     Player player;
-    player_init(&player, 2., 2., 0., 0., 2.,0.5);
+    player_init(&player, 1., 1., 0., 0., 2.,0.5);
 
     //ゲームループ------
     while(1){
@@ -62,6 +62,8 @@ int main() {
                     double uvY = (y*2.-console.windowHeight)/min(console.windowHeight, console.windowWidth);
                     double offSet = 2.0;
                     double dirX, dirY, dirZ;
+                    dvec3 rayDirection = (dvec3){uvX, offSet, uvY};
+                    vec_normalize3D(&rayDirection);
                     {//normalize
                         double length = sqrt(uvX*uvX+uvY*uvY +offSet*offSet);
                         dirX = uvX/length;
@@ -70,9 +72,12 @@ int main() {
                     }
                     vec_rotate2double(&dirY,&dirZ, player.dir.y);
                     vec_rotate2double(&dirX,&dirY, player.dir.x);
+                    vec_rotate2double(&rayDirection.y,&rayDirection.z, player.dir.y);
+                    vec_rotate2double(&rayDirection.x,&rayDirection.y, player.dir.x);
+                    //rayCast_sprite((dvec3){}, (dvec3){},(dvec3){},(dvec3){},&(dvec3){});
                     int sideFlag=1, numFlag=1;
-                    rayCast_map(&map, player.pos.x,player.pos.y, 10.0, 
-                        dirX, dirY, dirZ, &sideFlag, &numFlag, 0.8, 0.4);
+                    rayCast_map(&map, (dvec3){player.pos.x,player.pos.y, 10.0}, 
+                        (dvec3){dirX,dirY,dirZ}, &sideFlag, &numFlag, 0.8, 0.4);
                     WORD col = design_map(numFlag, sideFlag);
                     int id = y * console.windowWidth + x;
                     console.screenBuffer[id].Char.UnicodeChar = s;

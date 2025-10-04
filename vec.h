@@ -33,6 +33,10 @@ float vec_length2D(dvec2 n){
     return sqrt(n.x*n.x + n.y*n.y);
 }
 
+float vec_length3D(dvec3 n){
+    return sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+}
+
 void vec_normalize2D(dvec2 *n){
     float len = vec_length2D(*n);
     if(len==0){
@@ -41,6 +45,17 @@ void vec_normalize2D(dvec2 *n){
     }
     n->x/=len;
     n->y/=len;
+}
+
+void vec_normalize3D(dvec3 *n){
+    float len = vec_length3D(*n);
+    if(len==0){
+        n->x=n->y=n->z=1e30;
+        return;
+    }
+    n->x/=len;
+    n->y/=len;
+    n->z/=len;
 }
 
 double vec_dot2D(dvec2 a, dvec2 b) {

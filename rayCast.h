@@ -47,33 +47,31 @@ double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNor
 
 //参考記事https://lodev.org/cgtutor/raycasting.html
 //２次元配列のマップに対して壁との距離と，X・Y平面のどちらにあたったかと，壁のナンバーを計算
-double rayCast_map(Map *map, 
-                double playerX, double playerY, double playerZ,
-                double rayDirX, double rayDirY, double rayDirZ,
+double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
                 int *sideFlag, int *hitNumFlag,
                 double heightFloor, double heightCelling){
-    int mapX = (int)playerX;
-    int mapY = (int)playerY;
+    int mapX = (int)playerPos.x;
+    int mapY = (int)playerPos.y;
     
-    double deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1 / rayDirX);
-    double deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1 / rayDirY);
+    double deltaDistX = (rayDir.x == 0) ? 1e30 : fabs(1 / rayDir.x);
+    double deltaDistY = (rayDir.y == 0) ? 1e30 : fabs(1 / rayDir.y);
 
     double sideDistX, sideDistY;
     int stepX, stepY;
 
-    if (rayDirX < 0) {
+    if (rayDir.x < 0) {
         stepX = -1;
-        sideDistX = (playerX - mapX) * deltaDistX;
+        sideDistX = (playerPos.x - mapX) * deltaDistX;
     } else {
         stepX = 1;
-        sideDistX = (mapX + 1.0 - playerX) * deltaDistX;
+        sideDistX = (mapX + 1.0 - playerPos.x) * deltaDistX;
     }
-    if (rayDirY < 0) {
+    if (rayDir.y < 0) {
         stepY = -1;
-        sideDistY = (playerY - mapY) * deltaDistY;
+        sideDistY = (playerPos.y - mapY) * deltaDistY;
     } else {
         stepY = 1;
-        sideDistY = (mapY + 1.0 - playerY) * deltaDistY;
+        sideDistY = (mapY + 1.0 - playerPos.y) * deltaDistY;
     }
 
     int hit = 0;//当たり判定フラグ
@@ -110,18 +108,18 @@ double rayCast_map(Map *map,
     }
 
     //床天井との当たり判定
-    double rayDirLength2D = sqrt(rayDirX * rayDirX + rayDirY * rayDirY);
+    double rayDirLength2D = sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
     double true3DWallDist = (rayDirLength2D > 1e-6) ? (perpWallDist / rayDirLength2D) : 1e30;
-    if(rayDirZ > 0){
+    if(rayDir.z > 0){
         double distCelling;
-        distCelling = (1.0 / rayDirZ) * heightCelling;
+        distCelling = (1.0 / rayDir.z) * heightCelling;
         if(distCelling < true3DWallDist){
             //perpWallDist = dist
             *hitNumFlag = wallFlagNum; // 天井
         }
-    }else if(rayDirZ < 0){
+    }else if(rayDir.z < 0){
         double distFloor;
-        distFloor = -(1.0 / rayDirZ) * heightFloor;
+        distFloor = -(1.0 / rayDir.z) * heightFloor;
         if(distFloor < true3DWallDist){
             //perpWallDist = distFloor;
             *hitNumFlag = wallFlagNum; // 床
