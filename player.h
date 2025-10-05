@@ -49,42 +49,42 @@ void player_handleInput(Player *p, double deltaTime, Map *map) {
         float stepX = -sin(p->dir.x)*moveStep;
         float stepY = cos(p->dir.x)*moveStep;
         
-        if(maze_getNum(map, (int)(p->pos.x+stepX), (int)(p->pos.y)) == 0) {
-            p->pos.x += stepX;
+        if(maze_getNum(map, (int)(p->pos.x - stepX), (int)(p->pos.z)) == 0) {
+            p->pos.x -= stepX;
         }
-        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.y + stepY)) == 0) {
-            p->pos.y += stepY;
+        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.z - stepY)) == 0) {
+            p->pos.z -= stepY;
         }
     }
     if(GetAsyncKeyState('S') & 0x8000) {
         float stepX = -sin(p->dir.x)*moveStep;
         float stepY = cos(p->dir.x)*moveStep;
         
-        if(maze_getNum(map, (int)(p->pos.x - stepX), (int)(p->pos.y)) == 0) {
-            p->pos.x -= stepX;
+        if(maze_getNum(map, (int)(p->pos.x+stepX), (int)(p->pos.z)) == 0) {
+            p->pos.x += stepX;
         }
-        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.y - stepY)) == 0) {
-            p->pos.y -= stepY;
+        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.z + stepY)) == 0) {
+            p->pos.z += stepY;
         }
     }
     if(GetAsyncKeyState('D') & 0x8000){
         float stepX = cos(p->dir.x)*moveStep;
         float stepY = sin(p->dir.x)*moveStep;
-        if(maze_getNum(map, (int)(p->pos.x + stepX), (int)(p->pos.y)) == 0) {
+        if(maze_getNum(map, (int)(p->pos.x + stepX), (int)(p->pos.z)) == 0) {
             p->pos.x += stepX;
         }
-        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.y + stepY)) == 0) {
-            p->pos.y += stepY;
+        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.z + stepY)) == 0) {
+            p->pos.z += stepY;
         }
     }
     if(GetAsyncKeyState('A') & 0x8000){
         float stepX = cos(p->dir.x)*moveStep;
         float stepY = sin(p->dir.x)*moveStep;
-        if(maze_getNum(map, (int)(p->pos.x - stepX), (int)(p->pos.y)) == 0) {
+        if(maze_getNum(map, (int)(p->pos.x - stepX), (int)(p->pos.z)) == 0) {
             p->pos.x -= stepX;
         }
-        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.y - stepY)) == 0) {
-            p->pos.y -= stepY;
+        if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.z - stepY)) == 0) {
+            p->pos.z -= stepY;
         }
     }
     
@@ -94,7 +94,7 @@ void player_handleInput(Player *p, double deltaTime, Map *map) {
     float deltaMousePosX = p->prevMousePos.x - p->lastMousePos.x;
     float deltaMousePosY = p->prevMousePos.y - p->lastMousePos.y;
     p->lastMousePos = (POINT){p->prevMousePos.x, p->prevMousePos.y};
-    p->dir.x -= deltaMousePosX*rotStep;
-    p->dir.y -= deltaMousePosY*rotStep;
+    p->dir.x += deltaMousePosX*rotStep;
+    p->dir.y += deltaMousePosY*rotStep;
     
 }

@@ -5,7 +5,7 @@
 //0で範囲外
 int design_portal(dvec2 uv){
     double s = vec_length2D(uv);
-    if(0.2<s&&s<.3){
+    if(0.2<s&&s<1.3){
         return 1;
     }
     return 0;

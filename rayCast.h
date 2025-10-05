@@ -54,7 +54,7 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
                 int *sideFlag, int *hitNumFlag,
                 double heightFloor, double heightCelling){
     int mapX = (int)playerPos.x;
-    int mapY = (int)playerPos.y;
+    int mapY = (int)playerPos.z;
     
     double deltaDistX = (rayDir.x == 0) ? 1e30 : fabs(1 / rayDir.x);
     double deltaDistY = (rayDir.y == 0) ? 1e30 : fabs(1 / rayDir.y);
@@ -71,10 +71,10 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
     }
     if (rayDir.y < 0) {
         stepY = -1;
-        sideDistY = (playerPos.y - mapY) * deltaDistY;
+        sideDistY = (playerPos.z - mapY) * deltaDistY;
     } else {
         stepY = 1;
-        sideDistY = (mapY + 1.0 - playerPos.y) * deltaDistY;
+        sideDistY = (mapY + 1.0 - playerPos.z) * deltaDistY;
     }
 
     int hit = 0;//当たり判定フラグ

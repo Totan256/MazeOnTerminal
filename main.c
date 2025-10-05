@@ -23,7 +23,7 @@ int main() {
     QueryPerformanceCounter(&lastTime);//基準時間
 
     //ゴールポータルの設定
-    dvec3 portalPos = {1.5, 1.5, 0.1};   // ポータルの中心座標
+    dvec3 portalPos = {1.5, 3.1, 1.5};   // ポータルの中心座標
     dvec3 portalNormal = {1., 0., 0.0}; // ポータルの向き(法線ベクトル)
     vec_normalize3D(&portalNormal);
 
@@ -34,7 +34,7 @@ int main() {
 
     //プレイヤー情報の初期化
     Player player;
-    player_init(&player, (dvec3){1.5,1.5,0.0}, 0., 0., 2.,0.5);
+    player_init(&player, (dvec3){1.5,0.0,1.5}, 3.14*0.75, 3.14*0.5, 2.,0.9);
 
     //ゲームループ------
     while(1){
@@ -70,8 +70,8 @@ int main() {
                     double uvY = (console.windowHeight - y*2.0)/min(console.windowHeight, console.windowWidth);
                     double offSet = 2.0;
                     
-                    dvec3 rayDirection = (dvec3){uvX, offSet, uvY};
-                    dvec3 rayPosition = (dvec3){player.pos.x,player.pos.y, 0.0};
+                    dvec3 rayDirection = (dvec3){uvX, uvY, offSet};
+                    dvec3 rayPosition = (dvec3){player.pos.x,player.pos.y, player.pos.z};
                     vec_normalize3D(&rayDirection);
                     vec_rotate2double(&rayDirection.y,&rayDirection.z, player.dir.y);
                     vec_rotate2double(&rayDirection.x,&rayDirection.y, player.dir.x);
@@ -85,6 +85,12 @@ int main() {
                     WCHAR s = L' ';
                     dvec3 encountPos;
                     double portalDist;
+                    {
+                        double temp = rayPosition.y;
+                        rayPosition.y = rayPosition.z;
+                        rayPosition.z = temp;
+
+                    }
                     portalDist = rayCast_sprite(rayPosition,rayDirection, portalPos, portalNormal, &encountPos);
                     if(0 <= portalDist && portalDist < wallDist){//壁よりポータルが近い
                         dvec2 portalUV;

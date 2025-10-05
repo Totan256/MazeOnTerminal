@@ -91,5 +91,5 @@ void console_finish(Console *c){
     //代替バッファを閉じる
     CloseHandle(c->hGameConsole);
 
-    system("cls");
+    //system("cls");
 }
