@@ -1,11 +1,17 @@
 #include "vec.h"
 #include "math.h"
 #include "windows.h"
+#include "console.h"
+
+void desgin_startAnimation(Console *c){
+
+}
+
 
 //0で範囲外
 int design_portal(dvec2 uv){
     double s = vec_length2D(uv);
-    if(0.2<s&&s<1.3){
+    if(0.3<s&&s<0.5){
         return 1;
     }
     return 0;

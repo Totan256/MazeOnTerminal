@@ -10,6 +10,14 @@
 #include "design.h"
 #define FPS_TIME 60.0
 
+double waitFPS(LARGE_INTEGER *currentTime, LARGE_INTEGER *lastTime, LARGE_INTEGER *freq){//時間処理
+    double deltaTime = 0.0;
+    do{
+        QueryPerformanceCounter(currentTime);
+        deltaTime = (double)(currentTime->QuadPart - lastTime->QuadPart) / freq->QuadPart;
+    }while(deltaTime < 1.0/FPS_TIME);
+    return deltaTime;    
+}
 
 int main() {
     Console console;
@@ -23,7 +31,7 @@ int main() {
     QueryPerformanceCounter(&lastTime);//基準時間
 
     //ゴールポータルの設定
-    dvec3 portalPos = {1.5, 3.1, 1.5};   // ポータルの中心座標
+    dvec3 portalPos = {5.5, 5.5, .2};   // ポータルの中心座標
     dvec3 portalNormal = {1., 0., 0.0}; // ポータルの向き(法線ベクトル)
     vec_normalize3D(&portalNormal);
 
@@ -35,26 +43,58 @@ int main() {
     //プレイヤー情報の初期化
     Player player;
     player_init(&player, (dvec3){1.5,0.0,1.5}, 3.14*0.75, 3.14*0.5, 2.,0.9);
+    {//スタートアニメーション
+        int maxFrame=200;
+        for(int frame=0; frame<maxFrame; frame++){
+            deltaTime = waitFPS(&currentTime, &lastTime, &freq);
+            console_checkResizeAndReallocBuffer(&console);
+            
+            {//描画
+                for (SHORT y = 0; y < console.windowHeight; ++y) {
+                    for (SHORT x = 0; x < console.windowWidth; ++x) {
+                        int current_id = x + y * console.windowWidth;
 
+                        // アニメーション判定（斜めに切り替わる）
+                        if (x+y < frame) {
+                            // ゲーム画面を描画
+                            console.screenBuffer[current_id].Char.UnicodeChar = ((x*(4231-y) + y + x*x) % 8 > 4) ? L'0' : L'1';
+                            console.screenBuffer[current_id].Attributes = ((x*y + y*y*x) % 8 > 4) ? FOREGROUND_GREEN : FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                        } else {
+                            // 元のコンソール画面を描画
+                            // ◆ 座標マッピングの核心部分
+                            if (x < console.originalWidth && y < console.originalHeight) {
+                                // 範囲内なら、元の幅を使ってインデックスを計算
+                                int original_id = x + y * console.originalWidth;
+                                console.screenBuffer[current_id] = console.originalScreenBuffer[original_id];
+                            } else {
+                                // 範囲外（リサイズで広くなった部分）
+                                console.screenBuffer[current_id].Char.UnicodeChar = L' ';
+                                console.screenBuffer[current_id].Attributes = 0; // 黒
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ◆ 合成したバッファを一括で画面に転送
+            SMALL_RECT writeRegion = {0, 0, console.windowWidth - 1, console.windowHeight - 1};
+            WriteConsoleOutputW(console.hGameConsole, console.screenBuffer, (COORD){console.windowWidth, console.windowHeight}, (COORD){0, 0}, &writeRegion);
+
+            
+            
+            lastTime = currentTime;
+        }
+
+
+    }
     //ゲームループ------
     while(1){
-        
-        {//時間処理
-            QueryPerformanceCounter(&currentTime);
-            deltaTime = (double)(currentTime.QuadPart - lastTime.QuadPart) / freq.QuadPart;
-            if(deltaTime < 1.0/FPS_TIME)
-                continue;//FPS保持のため停止
-        }
-        
-        {//ウィンドウサイズ変更時にバッファを再設定して解像度を変更
-            if(console_windowSizeIsChanged(&console)){//ウィンドウサイズ変更検知
-                //描画バッファの再設定
-                console_setScreenBuffer(&console);
-            }
-        }
+        deltaTime = waitFPS(&currentTime, &lastTime, &freq);
+        console_checkResizeAndReallocBuffer(&console);
 
         {
-            //portalPos.z-=0.01;
+            portalPos.z=0.2+portalNormal.x*0.05;
+            vec_rotate2double(&portalNormal.x, &portalNormal.y, deltaTime);
         }
 
         {//プレイヤー入力
@@ -109,8 +149,17 @@ int main() {
             }
         }
 
-        //描画
+        {//描画
         console_draw(&console);
+        }
+
+        {//ゴールポータル接触判定
+            dvec3 d;
+            vec_sub3D(portalPos,player.pos,&d);
+            if(vec_length3D(d)<1.){
+                break;
+            }
+        }
 
         //終了判定
         {
@@ -125,5 +174,11 @@ int main() {
     console_finish(&console);
 
     printf("finish\n");
+    console_waitKeyUP(VK_RETURN);
+    printf("player:x=%f, y=%f, z=%f\n", player.pos.x, player.pos.y, player.pos.z);
+    printf("portal:x=%f, y=%f, z=%f\n", portalPos.x, portalPos.y, portalPos.z);
+    dvec3 d;
+    vec_sub3D(portalPos,player.pos,&d);
+    printf("len=%f\n",vec_length3D(d));
     return 0;
 }

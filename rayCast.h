@@ -13,7 +13,9 @@ void rayCast_calcUV(dvec3 encountPos, dvec3 planePos, dvec3 normal, dvec2 *uv){
         u = vec_cross(forward_axis, normal);
     } else {
         u = vec_cross(up, normal);
-    }    
+    }
+
+    vec_normalize3D(&u);
     dvec3 v = vec_cross(normal, u);
 
     dvec3 d;

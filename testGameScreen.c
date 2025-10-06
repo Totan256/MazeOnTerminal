@@ -31,26 +31,31 @@ BOOL checkResizeAndReallocBuffers() {
 
 
 int main() {
-    // 初期設定
-    SetConsoleOutputCP(CP_UTF8);
-    HANDLE hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SHORT originalWidth, originalHeight;
+    CHAR_INFO* originalScreenBuffer;
+    HANDLE hOriginalConsole;
     DWORD originalMode;
-    GetConsoleMode(hOriginalConsole, &originalMode);
-    SetConsoleMode(hOriginalConsole, originalMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    {// 初期設定
+        SetConsoleOutputCP(CP_UTF8);
+        hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        
+        GetConsoleMode(hOriginalConsole, &originalMode);
+        SetConsoleMode(hOriginalConsole, originalMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
-    // 1. 元の画面をキャプチャ
-    CONSOLE_SCREEN_BUFFER_INFO originalCsbi;
-    GetConsoleScreenBufferInfo(hOriginalConsole, &originalCsbi);
-    SHORT originalWidth = originalCsbi.srWindow.Right - originalCsbi.srWindow.Left + 1;
-    SHORT originalHeight = originalCsbi.srWindow.Bottom - originalCsbi.srWindow.Top + 1;
-    SMALL_RECT readRegion = originalCsbi.srWindow;
-    
-    CHAR_INFO* originalScreenBuffer = (CHAR_INFO*)calloc(originalWidth * originalHeight, sizeof(CHAR_INFO));
-    ReadConsoleOutputW(hOriginalConsole, originalScreenBuffer, (COORD){originalWidth, originalHeight}, (COORD){0, 0}, &readRegion);
+        // 1. 元の画面をキャプチャ
+        CONSOLE_SCREEN_BUFFER_INFO originalCsbi;
+        GetConsoleScreenBufferInfo(hOriginalConsole, &originalCsbi);
+        originalWidth = originalCsbi.srWindow.Right - originalCsbi.srWindow.Left + 1;
+        originalHeight = originalCsbi.srWindow.Bottom - originalCsbi.srWindow.Top + 1;
+        SMALL_RECT readRegion = originalCsbi.srWindow;
+        
+        originalScreenBuffer = (CHAR_INFO*)calloc(originalWidth * originalHeight, sizeof(CHAR_INFO));
+        ReadConsoleOutputW(hOriginalConsole, originalScreenBuffer, (COORD){originalWidth, originalHeight}, (COORD){0, 0}, &readRegion);
 
-    // 2. 代替バッファへ移行
-    printf("\x1b[?1049h\x1b[?25l");
-    g_hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        // 2. 代替バッファへ移行
+        printf("\x1b[?1049h\x1b[?25l");//VT100シーケンス
+        g_hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    }
 
     // =================================================================
     // 3. メインアニメーションループ
@@ -98,22 +103,24 @@ int main() {
     Sleep(2000);
 
     // 4. 後片付け
-    free(originalScreenBuffer);
-    free(g_backBuffer);
-    // 元のバッファに戻す
-    printf("\x1b[?1049l");
+    {
+        free(originalScreenBuffer);
+        free(g_backBuffer);
+        // 元のバッファに戻す
+        printf("\x1b[?1049l");
 
-    // 【対策】復元後、カーソル位置を整える
-    // 現在のウィンドウの高さを取得
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    GetConsoleScreenBufferInfo(hOriginalConsole, &csbi);
-    SHORT finalHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-    
-    // カーソルをウィンドウの左下に移動させてから改行し、プロンプトがきれいな行から始まるようにする
-    printf("\x1b[%d;1H\n", finalHeight);
+        // 【対策】復元後、カーソル位置を整える
+        // 現在のウィンドウの高さを取得
+        CONSOLE_SCREEN_BUFFER_INFO csbi;
+        GetConsoleScreenBufferInfo(hOriginalConsole, &csbi);
+        SHORT finalHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+        
+        // カーソルをウィンドウの左下に移動させてから改行し、プロンプトがきれいな行から始まるようにする
+        printf("\x1b[%d;1H\n", finalHeight);
 
-    // コンソールモードも元に戻す
-    SetConsoleMode(hOriginalConsole, originalMode); 
+        // コンソールモードも元に戻す
+        SetConsoleMode(hOriginalConsole, originalMode); 
+    }
 
     return 0;
 }

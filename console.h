@@ -4,6 +4,7 @@
 
 typedef struct{
     HANDLE hOriginalConsole, hGameConsole;
+    DWORD originalMode;//元のコンソールの設定を記録
 
     DWORD dwBytesWritten;//正直良くわからん
     POINT mousePosition;
@@ -11,6 +12,8 @@ typedef struct{
 
     int windowWidth, windowHeight;//ウィンドウサイズ
     CHAR_INFO *screenBuffer;//描画用の文字列バッファ
+    int originalWidth, originalHeight;//履歴ウィンドウサイズ
+    CHAR_INFO *originalScreenBuffer;//履歴文字列バッファ
 
 }Console;
 
@@ -28,31 +31,34 @@ void console_setScreenBuffer(Console *c){
     c->screenBuffer = (CHAR_INFO*)calloc(c->windowWidth * c->windowHeight, sizeof(CHAR_INFO));
 }
 
+void console_waitKeyUP(int vKey){
+    while((GetAsyncKeyState(vKey) & 0x8000) != 0){}
+}
+
 BOOL console_init(Console *c){
-    //現在の標準出力ハンドル（元のバッファ）
+    console_waitKeyUP(VK_RETURN);
+    SetConsoleOutputCP(CP_UTF8);
     c->hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     
-    //新しいスクリーンバッファ（代替バッファ）を作成
-    c->hGameConsole = CreateConsoleScreenBuffer(
-        GENERIC_READ | GENERIC_WRITE, //読み書き両方
-        0,//共有しない(?)
-        NULL,
-        CONSOLE_TEXTMODE_BUFFER,//テキストモード
-        NULL
-    );
-    if(c->hOriginalConsole == INVALID_HANDLE_VALUE || c->hGameConsole == INVALID_HANDLE_VALUE) {
-        printf("コンソールバッファの作成に失敗しました。\n");
-        exit(0);
-    }
-    //代替バッファをアクティブにする（画面切り替え）
-    SetConsoleActiveScreenBuffer(c->hGameConsole);
+    GetConsoleMode(c->hOriginalConsole, &c->originalMode);
+    SetConsoleMode(c->hOriginalConsole, c->originalMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
-    c->dwBytesWritten=0;
+    // 1. 元の画面をキャプチャ
+    CONSOLE_SCREEN_BUFFER_INFO originalCsbi;
+    GetConsoleScreenBufferInfo(c->hOriginalConsole, &originalCsbi);
+    c->originalWidth = originalCsbi.srWindow.Right - originalCsbi.srWindow.Left + 1;
+    c->originalHeight = originalCsbi.srWindow.Bottom - originalCsbi.srWindow.Top + 1;
+    SMALL_RECT readRegion = originalCsbi.srWindow;
+    
+    c->originalScreenBuffer = (CHAR_INFO*)calloc(c->originalWidth * c->originalHeight, sizeof(CHAR_INFO));
+    ReadConsoleOutputW(c->hOriginalConsole, c->originalScreenBuffer, (COORD){c->originalWidth, c->originalHeight}, (COORD){0, 0}, &readRegion);
+
+    // 2. 代替バッファへ移行
+    printf("\x1b[?1049h\x1b[?25l");//VT100シーケンス
+    c->hGameConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
     console_getWindowSize(&c->windowWidth, &c->windowHeight, c->hGameConsole);
     c->screenBuffer = (CHAR_INFO*)calloc(c->windowWidth * c->windowHeight, sizeof(CHAR_INFO));
-    WriteConsoleW(c->hGameConsole, L"Game Start!", 11, &c->dwBytesWritten, NULL);
-    Sleep(2000);
 }
 
 BOOL console_windowSizeIsChanged(Console *c){
@@ -68,6 +74,12 @@ BOOL console_windowSizeIsChanged(Console *c){
     return FALSE;
 }
 
+void console_checkResizeAndReallocBuffer(Console *c){
+    if(console_windowSizeIsChanged(c)){//ウィンドウサイズ変更検知
+        //描画バッファの再設定
+        console_setScreenBuffer(c);
+    }
+}
 
 void console_draw(Console *c){
     COORD bufferSize = { (SHORT)c->windowWidth, (SHORT)c->windowHeight };
@@ -84,12 +96,20 @@ void console_draw(Console *c){
 void console_finish(Console *c){
     //ゲーム中に溜まったキー入力破棄
     FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+    free(c->originalScreenBuffer);
     free(c->screenBuffer);
-    //元の標準バッファに戻す
-    SetConsoleActiveScreenBuffer(c->hOriginalConsole);
+    // 元のバッファに戻す
+    printf("\x1b[?1049l");
 
-    //代替バッファを閉じる
-    CloseHandle(c->hGameConsole);
+    // 【対策】復元後、カーソル位置を整える
+    // 現在のウィンドウの高さを取得
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(c->hOriginalConsole, &csbi);
+    SHORT finalHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    
+    // カーソルをウィンドウの左下に移動させてから改行し、プロンプトがきれいな行から始まるようにする
+    printf("\x1b[%d;1H\n", finalHeight);
 
-    //system("cls");
+    // コンソールモードも元に戻す
+    SetConsoleMode(c->hOriginalConsole, c->originalMode); 
 }
