@@ -9,7 +9,7 @@ void rayCast_calcUV(dvec3 encountPos, dvec3 planePos, dvec3 normal, dvec2 *uv){
     
     dvec3 u;
     if (normal.x * normal.x + normal.z * normal.z < 1e-6) {//完全に真上or真下
-        const dvec3 forward_axis = {0.0, 0.0, 1.0};
+        const dvec3 forward_axis = {1.0, 0.0, 0.0};
         u = vec_cross(forward_axis, normal);
     } else {
         u = vec_cross(up, normal);
@@ -31,7 +31,7 @@ double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNor
 
     //内積がほぼ0の場合で平行
     if (fabs(denominator) < 1e-6) {
-        return -1;
+        return -1.0;
     }
 
     dvec3 playerToPlane;
@@ -49,17 +49,23 @@ double rayCast_sprite(dvec3 rayPos, dvec3 rayDir, dvec3 planePos, dvec3 planeNor
     return t;
 }
 
+typedef struct {
+    bool didHit;
+    double distance;
+    int objectID;
+    int hitSurface;
+    dvec3 hitPosition;
+} RaycastResult;
 
 //参考記事https://lodev.org/cgtutor/raycasting.html
 //２次元配列のマップに対して壁との距離と，X・Y平面のどちらにあたったかと，壁のナンバーを計算
-double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
-                int *sideFlag, int *hitNumFlag,
+RaycastResult rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
                 double heightFloor, double heightCelling){
     int mapX = (int)playerPos.x;
     int mapY = (int)playerPos.z;
     
     double deltaDistX = (rayDir.x == 0) ? 1e30 : fabs(1 / rayDir.x);
-    double deltaDistY = (rayDir.y == 0) ? 1e30 : fabs(1 / rayDir.y);
+    double deltaDistY = (rayDir.z == 0) ? 1e30 : fabs(1 / rayDir.z);
 
     double sideDistX, sideDistY;
     int stepX, stepY;
@@ -71,7 +77,7 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
         stepX = 1;
         sideDistX = (mapX + 1.0 - playerPos.x) * deltaDistX;
     }
-    if (rayDir.y < 0) {
+    if (rayDir.z < 0) {
         stepY = -1;
         sideDistY = (playerPos.z - mapY) * deltaDistY;
     } else {
@@ -79,12 +85,11 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
         sideDistY = (mapY + 1.0 - playerPos.z) * deltaDistY;
     }
 
-    int hit = 0;//当たり判定フラグ
+    bool hit = false;//当たり判定フラグ
     int side;//X面(0)Y面(1)　どちらに当たったかのフラグ
+    int wallID;
 
-    const int wallFlagNum = -1;
-
-    while (hit == 0) {
+    while (hit == false) {
         if (sideDistX < sideDistY) {//Xグリッドに当たった
             sideDistX += deltaDistX;
             mapX += stepX;
@@ -98,12 +103,11 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
         //マスが壁かチェック
         int num = maze_getNum(map, mapX, mapY);
         if (num > 0) {
-            hit = 1;
-            *hitNumFlag = num;
+            hit = true;
+            wallID = num;
         }
     }
 
-    *sideFlag = side;
     double perpWallDist;//壁までの垂直距離　魚眼効果補正
     if (side == 0) {//X
         //1ステップ分戻す
@@ -113,23 +117,29 @@ double rayCast_map(Map *map, dvec3 playerPos, dvec3 rayDir,
     }
 
     //床天井との当たり判定
-    double rayDirLength2D = sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
+    double rayDirLength2D = sqrt(rayDir.x * rayDir.x + rayDir.z * rayDir.z);
     double true3DWallDist = (rayDirLength2D > 1e-6) ? (perpWallDist / rayDirLength2D) : 1e30;
-    if(rayDir.z > 0){
+    if(rayDir.y > 0){
         double distCelling;
-        distCelling = (1.0 / rayDir.z) * heightCelling;
+        distCelling = (1.0 / rayDir.y) * heightCelling;
         if(distCelling < true3DWallDist){
             perpWallDist = distCelling;
-            *hitNumFlag = -1; // 天井
+            wallID = -1; // 天井
         }
-    }else if(rayDir.z < 0){
+    }else if(rayDir.y < 0){
         double distFloor;
-        distFloor = -(1.0 / rayDir.z) * heightFloor;
+        distFloor = -(1.0 / rayDir.y) * heightFloor;
         if(distFloor < true3DWallDist){
             perpWallDist = distFloor;
-            *hitNumFlag = -2; // 床
+            wallID = -2; // 床
         }
     }
     
-    return perpWallDist;
+    RaycastResult value;
+    value.didHit = hit;
+    value.distance = perpWallDist;
+    value.hitSurface = side;
+    value.objectID = wallID;
+
+    return value;
 }

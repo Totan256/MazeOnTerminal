@@ -3,7 +3,7 @@
 #include "windows.h"
 #include "console.h"
 
-void desgin_startAnimation(Console *c){
+void design_startAnimation(Console *c){
 
 }
 

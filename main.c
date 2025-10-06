@@ -8,6 +8,7 @@
 #include "rayCast.h"
 #include "console.h"
 #include "design.h"
+#include "input.h"
 #define FPS_TIME 60.0
 
 double waitFPS(LARGE_INTEGER *currentTime, LARGE_INTEGER *lastTime, LARGE_INTEGER *freq){//時間処理
@@ -31,21 +32,22 @@ int main() {
     QueryPerformanceCounter(&lastTime);//基準時間
 
     //ゴールポータルの設定
-    dvec3 portalPos = {5.5, 5.5, .2};   // ポータルの中心座標
+    //dvec3 portalPos = {5.5, .2, 5.5};   // ポータルの中心座標
+    dvec3 portalPos = {1.5, .2, 1.5};
     dvec3 portalNormal = {1., 0., 0.0}; // ポータルの向き(法線ベクトル)
     vec_normalize3D(&portalNormal);
 
     //マップ用意
     Map map;
-    maze_ganarate(&map, 3, 3);
+    maze_generate(&map, 3, 3);
     //testMaze(&map);  //test用
 
     //プレイヤー情報の初期化
     Player player;
-    player_init(&player, (dvec3){1.5,0.0,1.5}, 3.14*0.75, 3.14*0.5, 2.,0.9);
+    player_init(&player, (dvec3){1.5,0.0,1.5}, -3.14*0.25, 3.14*0., 2.,0.9);
     {//スタートアニメーション
         int maxFrame=200;
-        for(int frame=0; frame<maxFrame; frame++){
+        for(int frame=0; frame<maxFrame; frame+=4){
             deltaTime = waitFPS(&currentTime, &lastTime, &freq);
             console_checkResizeAndReallocBuffer(&console);
             
@@ -93,12 +95,16 @@ int main() {
         console_checkResizeAndReallocBuffer(&console);
 
         {
-            portalPos.z=0.2+portalNormal.x*0.05;
-            vec_rotate2double(&portalNormal.x, &portalNormal.y, deltaTime);
+            //portalPos.z=0.6+portalNormal.x*0.05;
+            vec_rotate2double(&portalNormal.x, &portalNormal.z, deltaTime);//y軸中心回転
         }
 
-        {//プレイヤー入力
-            player_handleInput(&player, deltaTime, &map);
+        //入力状態
+        input_update();
+        const InputState *input = input_getState();
+
+        {//プレイヤー操作
+            player_handleInput(&player, input, deltaTime, &map);
         }
 
         //描画用文字列用意
@@ -113,26 +119,25 @@ int main() {
                     dvec3 rayDirection = (dvec3){uvX, uvY, offSet};
                     dvec3 rayPosition = (dvec3){player.pos.x,player.pos.y, player.pos.z};
                     vec_normalize3D(&rayDirection);
-                    vec_rotate2double(&rayDirection.y,&rayDirection.z, player.dir.y);
-                    vec_rotate2double(&rayDirection.x,&rayDirection.y, player.dir.x);
+                    vec_rotate2double(&rayDirection.y,&rayDirection.z, player.dir.y);//Pitch回転 (X軸を中心にYとZを回転)
+                    vec_rotate2double(&rayDirection.x,&rayDirection.z, player.dir.x);//Yaw回転 (Y軸を中心にXとZを回転)
                     
-                    int sideFlag=1, numFlag=1;
-                    double wallDist;
-                    wallDist = rayCast_map(&map, rayPosition, rayDirection, &sideFlag, &numFlag, 0.4, 0.8);
-                        
-                    WORD col = design_map(numFlag, sideFlag);
+                    
+                    RaycastResult mapResult = rayCast_map(&map, rayPosition, rayDirection, 0.4, 0.8);
+                    
+                    WORD col = design_map(mapResult.objectID, mapResult.hitSurface);
 
                     WCHAR s = L' ';
                     dvec3 encountPos;
                     double portalDist;
                     {
-                        double temp = rayPosition.y;
-                        rayPosition.y = rayPosition.z;
-                        rayPosition.z = temp;
+                        //double temp = rayPosition.y;
+                        //rayPosition.y = rayPosition.z;
+                        //rayPosition.z = temp;
 
                     }
                     portalDist = rayCast_sprite(rayPosition,rayDirection, portalPos, portalNormal, &encountPos);
-                    if(0 <= portalDist && portalDist < wallDist){//壁よりポータルが近い
+                    if(0 <= portalDist && portalDist < mapResult.distance){//壁よりポータルが近い
                         dvec2 portalUV;
                         //s = '@';//test
                         rayCast_calcUV(encountPos, portalPos, portalNormal, &portalUV);
@@ -156,15 +161,15 @@ int main() {
         {//ゴールポータル接触判定
             dvec3 d;
             vec_sub3D(portalPos,player.pos,&d);
-            if(vec_length3D(d)<1.){
-                break;
-            }
+            //if(vec_length3D(d)<1.){
+            //    break;
+            //}
         }
 
         //終了判定
         {
             short returnKeyStatus = GetAsyncKeyState(VK_RETURN);
-            if ((returnKeyStatus & 0x8000) != 0)
+            if (input->isPressed[ACTION_QUIT_GAME])
                 break;
         }
         
