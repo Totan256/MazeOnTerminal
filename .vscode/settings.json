@@ -6,6 +6,7 @@
         "limits": "cpp",
         "random": "cpp",
         "utility": "cpp",
-        "maze.h": "c"
+        "maze.h": "c",
+        "map": "c"
     }
 }

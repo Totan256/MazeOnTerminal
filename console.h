@@ -14,11 +14,6 @@ typedef struct{
     DWORD dwBytesWritten;//正直良くわからん
     POINT mousePosition;
 
-
-    // int windowWidth, windowHeight;//ウィンドウサイズ
-    // CHAR_INFO *screenBuffer;//描画用の文字列バッファ
-    // int originalWidth, originalHeight;//履歴ウィンドウサイズ
-    // CHAR_INFO *originalScreenBuffer;//履歴文字列バッファ
     ScreenBuffer originalScreen;
     ScreenBuffer gameScreen;
 
@@ -42,7 +37,7 @@ void console_setScreenBuffer(ScreenBuffer *sb){
 }
 
 BOOL console_init(Console *c){
-    console_waitKeyUP(VK_RETURN);
+    console_waitKeyUP(ACTION_QUIT_GAME);
     SetConsoleOutputCP(CP_UTF8);
     c->hOriginalConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     

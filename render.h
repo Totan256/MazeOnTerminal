@@ -4,6 +4,8 @@
 #include "maze.h"
 #include "vec.h"
 #include "console.h"
+#include "rayCast.h"
+#include "design.h"
 
 void render_setBuffer(Player *player, Map *map, ScreenBuffer *sb,
         dvec3 portalPos, dvec3 portalNormal){
@@ -46,34 +48,34 @@ void render_setBuffer(Player *player, Map *map, ScreenBuffer *sb,
     }
 }
 
-void render_transAnimation(ScreenBuffer *dest, ScreenBuffer *from, ScreenBuffer *to, int frame){
+void render_transAnimation(ScreenBuffer *dest, ScreenBuffer *from, ScreenBuffer *to, double progress){
     bool fromIsUsable = (from!=NULL);
     bool toIsUsable = (to!=NULL);
 
     for(int y=0; y<dest->height; y++){
         for(int x=0; x<dest->width; x++){
             int destId = x+y*dest->width;
-            if(x+y < frame){
-                dest->buffer[destId].Char.UnicodeChar = ((x*(4231-y) + y + x*x) % 8 > 4) ? L'0' : L'1';
-                dest->buffer[destId].Attributes = ((x*y + y*y*x) % 8 > 4) ? FOREGROUND_GREEN : FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                if(x+y<frame-40 && toIsUsable){
-                    if(x < to->width && y < to->height && toIsUsable){
-                        int toId = x+y*to->width;
-                        dest->buffer[destId] = to->buffer[toId];
-                    }else{
-                        dest->buffer[destId].Char.UnicodeChar = L' ';
-                        dest->buffer[destId].Attributes = 0; // 黒
-                    }
-                }
+            CHAR_INFO fromCharInfo, toCharInfo;
+            CHAR_INFO exceptionCharInfo;
+            exceptionCharInfo.Char.UnicodeChar = L' ';
+            exceptionCharInfo.Attributes = 0; // 黒
+            
+            if(x < to->width && y < to->height && toIsUsable){
+                int toId = x+y*to->width;
+                toCharInfo = to->buffer[toId];
             }else{
-                if(x < from->width && y < from->height && fromIsUsable){
-                    int fromId = x+y*from->width;
-                    dest->buffer[destId] = from->buffer[fromId];
-                }else{
-                    dest->buffer[destId].Char.UnicodeChar = L' ';
-                    dest->buffer[destId].Attributes = 0; // 黒
-                }
+                toCharInfo = exceptionCharInfo;
             }
+
+            if(x < from->width && y < from->height && fromIsUsable){
+                int fromId = x+y*from->width;
+                fromCharInfo = from->buffer[fromId];
+            }else{
+                fromCharInfo = exceptionCharInfo;
+            }
+
+            design_dissolveAnimation((double)x/dest->width, (double)y/dest->height,
+                progress, &dest->buffer[destId],&fromCharInfo, &toCharInfo);
         }
     }
 }
