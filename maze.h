@@ -4,10 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdbool.h>
+#include <string.h>
 
 // 「壊せる壁の候補」を管理するための構造体
 typedef struct {
@@ -151,10 +148,16 @@ void ConvertMazeToBinary(const int* mazeMap, int width, int height, int* binaryM
 }
 
 //生成された迷路描画するテスト用
-void printBinaryMap(Map *map, int bWidth, int bHeight) {
-    for (int y = 0; y < bHeight; y++) {
-        for (int x = 0; x < bWidth; x++) {
-            printf("%s", maze_getNum(map, x,y) == 0 ? " " : "@");
+void maze_printBinaryMap(Map *map) {
+    for (int y = 0; y < map->height; y++) {
+        for (int x = 0; x < map->width; x++) {
+            if(x==1&&y==1){
+                printf("S");
+            }else if(x==map->width-2 && y==map->height-2){
+                printf("G");
+            }else{
+                printf("%s", maze_getNum(map, x,y) == 0 ? " " : "@");
+            }
         }
         printf("\n");
     }

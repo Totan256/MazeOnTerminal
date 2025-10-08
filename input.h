@@ -53,12 +53,26 @@ static const int g_keyMap[ACTION_COUNT] = {
 };
 
 
+void console_waitKeyUP(GameAction action){
+    while((GetAsyncKeyState(g_keyMap[action]) & 0x8000) != 0){}
+}
 
-void input_init(void) {
+void input_init() {
     GetCursorPos(&g_previousMousePos);
 }
 
-void input_update(void) {
+void input_resetState(){
+    GetCursorPos(&g_previousMousePos);
+    g_currentState.deltaMouseX=0;
+    g_currentState.deltaMouseY=0;
+    for (int i = 0; i < ACTION_COUNT; ++i) {
+        g_currentState.isDown[i] = false;
+        g_currentState.isPressed[i] = false;
+        g_previousDownStates[i] = false;
+    }
+}
+
+void input_update() {
     // --- 1. キーボード入力の更新 ---
     for (int i = 0; i < ACTION_COUNT; ++i) {
         int vKey = g_keyMap[i];
@@ -90,7 +104,7 @@ void input_update(void) {
     g_previousMousePos = currentMousePos;
 }
 
-const InputState* input_getState(void) {
+const InputState* input_getState() {
     // 外部からは内部状態を直接書き換えられないように、constポインタを返す
     return &g_currentState;
 }

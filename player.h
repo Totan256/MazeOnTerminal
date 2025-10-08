@@ -3,7 +3,6 @@
 #include "maze.h"
 #include "input.h"
 #include <math.h>
-#include <windows.h>
 
 typedef struct {
     dvec3 pos;
@@ -11,8 +10,7 @@ typedef struct {
     //dvec2 plane;
     double moveSpeed;
     double rotSpeed;
-    POINT lastMousePos;
-    POINT prevMousePos;
+    double totalWallDist;
 } Player;
 
 void player_init(Player *p, dvec3 pos, double dirX, double dirY, double moveSpeed, double rotSpeed){
@@ -23,6 +21,7 @@ void player_init(Player *p, dvec3 pos, double dirX, double dirY, double moveSpee
     p->dir.y = dirY;
     p->moveSpeed = moveSpeed;
     p->rotSpeed = rotSpeed;
+    p->totalWallDist = 0;
     //カーソルをウィンドウ中央に
     //うまくいかない．．．どうやらwindowsコンソールでは無理そう
     /*
@@ -36,8 +35,8 @@ void player_init(Player *p, dvec3 pos, double dirX, double dirY, double moveSpee
     //カーソル非表示
     ShowCursor(FALSE);
     */
-    GetCursorPos(&p->lastMousePos);
 }
+
 
 void player_handleInput(Player *p, const InputState* input, double deltaTime, Map *map) {
     double moveStepSize = p->moveSpeed * deltaTime;
@@ -58,9 +57,11 @@ void player_handleInput(Player *p, const InputState* input, double deltaTime, Ma
 
         if(maze_getNum(map, (int)(p->pos.x + stepX), (int)(p->pos.z)) == 0) {
             p->pos.x += stepX;
+            p->totalWallDist += stepX;
         }
         if(maze_getNum(map, (int)(p->pos.x), (int)(p->pos.z + stepY)) == 0) {
             p->pos.z += stepY;
+            p->totalWallDist += stepY;
         }
     }
     
@@ -110,11 +111,7 @@ void player_handleInput(Player *p, const InputState* input, double deltaTime, Ma
     
     //回転
     double rotStep = p->rotSpeed * deltaTime;
-    GetCursorPos(&p->prevMousePos);
-    float deltaMousePosX = p->prevMousePos.x - p->lastMousePos.x;
-    float deltaMousePosY = p->prevMousePos.y - p->lastMousePos.y;
-    p->lastMousePos = (POINT){p->prevMousePos.x, p->prevMousePos.y};
-    p->dir.x -= deltaMousePosX*rotStep;
-    p->dir.y += deltaMousePosY*rotStep;
+    p->dir.x -= input->deltaMouseX*rotStep;
+    p->dir.y += input->deltaMouseY*rotStep;
     
 }
