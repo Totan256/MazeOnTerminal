@@ -12,8 +12,8 @@
 // --- クラスの前方宣言 ---
 class Directory;
 static const uint8_t PERM_READ = 0b100; // 4
-    static const uint8_t PERM_WRITE = 0b010; // 2
-    static const uint8_t PERM_EXECUTE = 0b001; // 1
+static const uint8_t PERM_WRITE = 0b010; // 2
+static const uint8_t PERM_EXECUTE = 0b001; // 1
 //==============================================================================
 // ## 1. ファイルシステムの基底クラス (全てのモノの原型)
 //==============================================================================
@@ -63,7 +63,7 @@ public:
 class Directory : public FileSystemNode {
 public:
     // コンストラクタ (ルートディレクトリの場合、親はnullptr)
-    Directory(const std::string& name, Directory* parent);
+    Directory(const std::string& name, Directory* parent, uint8_t permissions);
 
     // 子ノードを追加・検索するメソッド
     void addChild(std::unique_ptr<FileSystemNode> child);

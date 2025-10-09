@@ -14,8 +14,8 @@ std::string FileSystemNode::getPermissionsString() const {
 //==============================================================================
 // Directoryクラスの実装
 //==============================================================================
-Directory::Directory(const std::string& name, Directory* parent)
-    : FileSystemNode(name, parent, PERM_READ | PERM_WRITE | PERM_EXECUTE, 4) {} // ディレクトリは常にrwx
+Directory::Directory(const std::string& name, Directory* parent, uint8_t permissions)
+    : FileSystemNode(name, parent, permissions, 0) {} // ディレクトリは常にrwx
 
 void Directory::addChild(std::unique_ptr<FileSystemNode> child) {
     children.push_back(std::move(child));
@@ -49,11 +49,11 @@ void Directory::listContents(bool show_details) const {
 //==============================================================================
 Game::Game() {
     // --- ① 起点：「ルートディレクトリ」の準備 ---
-    root = std::make_unique<Directory>("/", nullptr);
+    root = std::make_unique<Directory>("/", nullptr, PERM_READ | PERM_WRITE | PERM_EXECUTE);
     current_directory = root.get();
 
     // --- ② 初期設定：ファイルとディレクトリの配置 ---
-    auto floor1 = std::make_unique<Directory>("floor1", root.get());
+    auto floor1 = std::make_unique<Directory>("floor1", root.get(), PERM_READ);
     
     // ファイルを作成してfloor1に追加
     auto readme = std::make_unique<File>("readme.txt", floor1.get(),
@@ -90,7 +90,6 @@ void Game::run() {
         processor.execute(line);
     }
 }
-
 
 //==============================================================================
 // CommandProcessorクラスの実装
@@ -135,7 +134,7 @@ void CommandProcessor::cmd_cd(const std::vector<std::string>& args) {
     Directory* current = game.getCurrentDirectory();
 
     if (dirname == "..") {
-        if (current->parent) {
+        if (current->parent && current->permissions &PERM_EXECUTE) {
             game.setCurrentDirectory(current->parent);
         }
     } else {
@@ -189,6 +188,36 @@ void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
     }
 }
 
+// CommandProcessorクラスにパスワードを保持するメンバ変数を追加
+// std::string sudo_password;
+
+// void CommandProcessor::cmd_sudo(const std::vector<std::string>& args) {
+//     if (args.size() < 2) {
+//         std::cout << "sudo: missing command" << std::endl;
+//         return;
+//     }
+
+//     std::cout << "[sudo] password for player: ";
+//     std::string input_password;
+//     std::getline(std::cin, input_password);
+
+//     // 設定されたパスワードと一致するかチェック
+//     if (input_password == game.getSudoPassword()) {
+//         // --- 権限昇格 ---
+//         game.setSuperUser(true); // 管理者モードフラグをON
+
+//         // sudoに続くコマンドを再実行
+//         std::vector<std::string> new_args(args.begin() + 1, args.end());
+//         std::string command_name = new_args[0];
+//         if(commands.count(command_name)) {
+//             commands[command_name](new_args);
+//         }
+        
+//         game.setSuperUser(false); // コマンド実行後すぐに権限を戻す
+//     } else {
+//         std::cout << "sudo: incorrect password" << std::endl;
+//     }
+// }
 
 //==============================================================================
 // ## main関数
