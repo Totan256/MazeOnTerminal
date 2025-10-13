@@ -44,10 +44,10 @@ public:
     Game(){
         //初期数値
         const double defaultFPS = 60.0;
-        const int mapSizeX = 3;
-        const int mapSizeY = 3;
+        const int mapSizeX = 5;
+        const int mapSizeY = 5;
         const vec::vec3 portalStartNormal = {1., 0., 0.0};
-        const vec::vec3 portaldefaultPos = {5.5,0.2,5.5};
+        const vec::vec3 portaldefaultPos = {9.5,0.2, 9.5};
         const vec::vec3 playerStartPos = {1.5,0.0,1.5};
         const double playerStartDirX = -3.14*0.25;
         const double playerStartDirY = 3.14*0.0;

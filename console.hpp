@@ -2,8 +2,6 @@
 #include <windows.h>
 #include <stdio.h>
 
-#pragma once
-#include <windows.h>
 #include <vector> // 可変長配列。CHAR_INFOの管理に便利
 
 // ScreenBufferはConsoleクラスで使う部品なので、このファイルに一緒に定義すると便利

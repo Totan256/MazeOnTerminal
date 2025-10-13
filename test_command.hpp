@@ -21,10 +21,13 @@ class FileSystemNode {
 public:
     // 権限を管理するためのビットフラグ
     
-
+    enum class Owner { PLAYER, ROOT };
+    std::string getOwnerString() const {
+        return (owner == Owner::PLAYER) ? "player" : "root";
+    }
     // コンストラクタ
-    FileSystemNode(std::string name, Directory* parent, uint8_t permissions, int size)
-        : name(std::move(name)), parent(parent), permissions(permissions), size(size) {}
+    FileSystemNode(std::string name, Directory* parent, uint8_t permissions, int size, Owner owner)
+        : name(std::move(name)), parent(parent), permissions(permissions), size(size), owner(owner) {}
 
     // 派生クラスを安全に破棄するためのお作法
     virtual ~FileSystemNode() = default;
@@ -37,6 +40,14 @@ public:
     Directory* parent;
     uint8_t permissions;
     int size;
+    Owner owner;
+    bool checkPerm(bool isSuperUser, uint8_t perm) const{
+        if (!this) return false;
+        if (isSuperUser) return true;
+        if (this->owner == FileSystemNode::Owner::ROOT) return false;
+        if (!(this->permissions & perm)) return false;
+        return true;
+    }
 };
 
 //==============================================================================
@@ -46,8 +57,8 @@ public:
 // 通常のテキストファイル
 class File : public FileSystemNode {
 public:
-    File(const std::string& name, Directory* parent, std::string content, uint8_t permissions, int size)
-        : FileSystemNode(name, parent, permissions, size), content(std::move(content)) {}
+    File(const std::string& name, Directory* parent, std::string content, uint8_t permissions, int size, Owner owner)
+        : FileSystemNode(name, parent, permissions, size, owner), content(std::move(content)) {}
     
     std::string content;
 };
@@ -55,22 +66,24 @@ public:
 // 実行可能なコマンドファイル
 class Executable : public FileSystemNode {
 public:
-    Executable(const std::string& name, Directory* parent, uint8_t permissions, int size)
-        : FileSystemNode(name, parent, permissions, size) {}
+    Executable(const std::string& name, Directory* parent, uint8_t permissions, int size, Owner owner)
+        : FileSystemNode(name, parent, permissions, size, owner) {}
 };
 
 // ファイルやディレクトリを格納するコンテナ
 class Directory : public FileSystemNode {
 public:
     // コンストラクタ (ルートディレクトリの場合、親はnullptr)
-    Directory(const std::string& name, Directory* parent, uint8_t permissions);
+    Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner);
 
     // 子ノードを追加・検索するメソッド
     void addChild(std::unique_ptr<FileSystemNode> child);
-    FileSystemNode* findChild(const std::string& childName);
-    
+    std::vector<FileSystemNode*> findChildren(const std::string& childName);
+    void removeChild(const std::string& childName);
+    std::unique_ptr<FileSystemNode> releaseChild(const std::string& childName);
+
     // 中身を一覧表示する
-    void listContents(bool show_details) const;
+    void listContents(bool show_details, bool show_all) const;
 
 private:
     std::vector<std::unique_ptr<FileSystemNode>> children;
@@ -87,9 +100,21 @@ public:
     Directory* getCurrentDirectory() const { return current_directory; }
     void setCurrentDirectory(Directory* dir) { current_directory = dir; }
 
+    void setSuperUser(bool status) { is_superuser = status; }
+    bool isSuperUser() const { return is_superuser; }
+    std::string getSudoPassword() const { return sudo_password; }
+
+    std::vector<FileSystemNode*> resolvePaths(const std::string& path);
+
+    
+
+
 private:
+    void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
     std::unique_ptr<Directory> root; // ファイルシステムの起点
     Directory* current_directory;    // プレイヤーの現在地
+    bool is_superuser = false;
+    std::string sudo_password = "1234";
 };
 
 //==============================================================================
@@ -112,4 +137,10 @@ private:
     void cmd_cat(const std::vector<std::string>& args);
     void cmd_pwd(const std::vector<std::string>& args);
     void cmd_chmod(const std::vector<std::string>& args);
+    void cmd_sudo(const std::vector<std::string>& args);
+    void cmd_rm(const std::vector<std::string>& args);
+    void cmd_find(const std::vector<std::string>& args);
+    void cmd_mv(const std::vector<std::string>& args);
+
+    
 };
