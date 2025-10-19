@@ -36,6 +36,8 @@ public:
     // 権限を文字列で表示するヘルパー関数
     std::string getPermissionsString() const;
 
+    virtual int getSize() const { return size; }
+
     // メンバ変数
     std::string name;
     Directory* parent;
@@ -62,6 +64,13 @@ public:
         : FileSystemNode(name, parent, permissions, size, owner), content(std::move(content)) {}
     
     std::string content;
+    void appendText(const std::string& text) {
+        content += text;
+        size += text.length();
+    }
+    int getSize() const override {
+        return this->size;
+    }
 };
 
 // 実行可能なコマンドファイル
@@ -69,6 +78,9 @@ class Executable : public FileSystemNode {
 public:
     Executable(const std::string& name, Directory* parent, uint8_t permissions, int size, Owner owner)
         : FileSystemNode(name, parent, permissions, size, owner) {}
+    int getSize() const override {
+        return this->size;
+    }
 };
 
 // ファイルやディレクトリを格納するコンテナ
@@ -77,9 +89,24 @@ public:
     // コンストラクタ (ルートディレクトリの場合、親はnullptr)
     Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner);
 
+    int getSize() const override {
+        int total_size = size; // ディレクトリ自体のサイズは通常0
+        for (const auto& child : children) {
+            total_size += child->getSize(); // 子ノ-ドのgetSize()を再帰的に呼び出す
+        }
+        return total_size;
+    }
+
     // 子ノードを追加・検索するメソッド
     void addChild(std::unique_ptr<FileSystemNode> child);
     std::vector<FileSystemNode*> findChildren(const std::string& childName);
+    std::vector<FileSystemNode*> getChildren(){
+        std::vector<FileSystemNode*> v;
+        for (const auto& child : children) {
+            v.push_back(child.get());
+        }
+        return v;
+    }
     void removeChild(const std::string& childName);
     std::unique_ptr<FileSystemNode> releaseChild(const std::string& childName);
 
@@ -109,15 +136,26 @@ public:
 
     Directory* getTrashDirectory() const { return trash_directory_; }
 
+    std::vector<std::string> outputStrings;//出力を一個にまとめて行う用
 
+    int getMaxDiskSize() const { return maxDiskSize; }
+    int getCurrentDiskSize() const {
+        if (root) {
+            return this->getCurrentDiskSize();
+        }
+        return 0;
+    }
+
+    File* logText = nullptr;
+    std::map<std::string, bool> usableOptions;
 private:
     void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
     std::unique_ptr<Directory> root; // ファイルシステムの起点
     Directory* current_directory;    // プレイヤーの現在地
     Directory* trash_directory_ = nullptr; // trash
-    File* logText = nullptr;
     bool is_superuser = false;
     std::string sudo_password = "1234";
+    int maxDiskSize = 256;
 };
 
 //==============================================================================
@@ -130,6 +168,9 @@ public:
 
 private:
     Game& game; // ゲーム本体への参照
+
+    
+    std::map<std::string, bool> containOptions;
     
     // コマンド名と、それに対応する処理(関数)を結びつけるMap
     std::map<std::string, std::function<void(const std::vector<std::string>&)>> commands;

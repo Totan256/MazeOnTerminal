@@ -1,4 +1,5 @@
 #include "test_command.hpp"
+#include <string>
 #include <algorithm>
 
 //==============================================================================
@@ -155,7 +156,7 @@ void Game::resolvePathsRecursive(const std::vector<std::string>& parts, size_t i
         if (part == ".") { next_nodes.push_back(node); continue; }
         if (part == "..") { if (node->parent) next_nodes.push_back(node->parent); continue; }
         Directory* dir = dynamic_cast<Directory*>(node);
-        if (dir->checkPerm(is_superuser, PERM_EXECUTE)) {
+        if (dir && dir->checkPerm(is_superuser, PERM_EXECUTE)) {
             std::vector<FileSystemNode*> found = dir->findChildren(part);
             next_nodes.insert(next_nodes.end(), found.begin(), found.end());
         }
@@ -196,22 +197,68 @@ CommandProcessor::CommandProcessor(Game& game) : game(game) {
     commands["mv"] = [this](const auto& args){ this->cmd_mv(args); };
 }
 
+
 void CommandProcessor::execute(const std::string& input_line) {
+    game.outputStrings = {0};
     std::stringstream ss(input_line);
     std::string command;
     ss >> command;
 
     std::vector<std::string> args;
-    args.push_back(command);
-    std::string arg;
-    while(ss >> arg) {
-        args.push_back(arg);
+    {
+        args.push_back(command);
+        std::string arg;
+        while(ss >> arg) {
+            args.push_back(arg);
+        }
     }
-    
+
+    auto current_dir = game.getCurrentDirectory();
+    auto nodes = current_dir->findChildren(command);
+
+    if (nodes.empty()) {
+        std::cout << "Command not found: " << command << std::endl;
+        return;
+    }
+    // TODO: ワイルドカード等で複数見つかった場合の処理。今は最初の一つだけを対象とする。
+    FileSystemNode* command_node = nodes.front();
+    //確認
+    Executable* exec_file = dynamic_cast<Executable*>(command_node);
+    if (!exec_file) {//実行ファイルかどうか確認
+        std::cout << command << ": is not an executable file." << std::endl;
+        return;
+    }
+    if (!exec_file->checkPerm(game.isSuperUser(), PERM_EXECUTE)) {//権限チェック
+        std::cout << "Permission denied: " << command << std::endl;
+        return;
+    }
+    //オプションの抽出と確認
+    containOptions.clear();
+    for(int i=1; i<args.size(); i++){
+        std::string arg = args.at(i);
+        if(arg.front() = '-'){
+            for(int j=1; j<arg.size(); j++){
+                if(game.usableOptions[&arg.at(j)])
+                    containOptions[&arg.at(j)]=true;
+            }
+            args.erase(args.begin() + i);
+            i--;
+        }
+    }
+
+    //実行
     if (commands.count(command)) {
         commands[command](args); // Mapから関数を呼び出す
-    } else if(!command.empty()) {
-        std::cout << "Command not found: " << command << std::endl;
+        //ログテキストのサイズ増加
+        game.logText->appendText(input_line + "\n");
+    } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
+        std::cout << "Execution failed: internal error for command '" << command << "'" << std::endl;
+    }
+
+    //実行後の容量処理
+    if (game.getCurrentDiskSize() > game.getMaxDiskSize()) { // game.getCurrentDiskSize()は再帰計算を行う
+        std::cout << "DISK FULL. FILESYSTEM CORRUPTED. SHUTTING DOWN..." << std::endl;
+        exit(1);
     }
 }
 
@@ -221,7 +268,7 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
     bool long_format = false, all_files = false;
 
     // 引数を解析してパスとオプションを特定
-    for (size_t i = 1; i < args.size(); ++i) {
+    for (size_t i = 1; i < args.size(); i++) {
         if (args[i] == "-la" || args[i] == "-al" ) {
             long_format = true;all_files = true;
         }else if (args[i] == "-l") {
@@ -244,13 +291,17 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
         for(auto node : target_nodes){
             // ノードがディレクトリか確認
             Directory* target_dir = dynamic_cast<Directory*>(node);
-            if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){//権限チェック
-                return;
-            }
-            if (target_dir) {
+            if (target_dir) { // まず、ディレクトリかどうかを確認
+                if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
+                    std::cout << "ls: cannot open directory '" << node->name << "': Permission denied" << std::endl;
+                    continue;
+                }
                 target_dir->listContents(long_format, all_files);
-            } else {
-                // 対象がファイルだった場合は、ファイル名だけ表示
+            } else if (node) { // ディレクトリではないが、ファイルとして存在する場合
+                if(!node->checkPerm(game.isSuperUser(), PERM_READ)){
+                     std::cout << "ls: cannot access '" << node->name << "': Permission denied" << std::endl;
+                     continue;
+                }
                 std::cout << node->name << std::endl;
             }
         }
@@ -274,6 +325,10 @@ void CommandProcessor::cmd_cd(const std::vector<std::string>& args) {
     }
     
     Directory* target_dir = dynamic_cast<Directory*>(target_node);
+    if(!target_dir){
+        std::cout<<"cd : cant cd such file"<<std::endl;
+        return;
+    }
     if(!target_dir->checkPerm(game.isSuperUser(), PERM_EXECUTE)){//権限チェック
         return;
     }
@@ -296,6 +351,10 @@ void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
 
     for(FileSystemNode* node : nodes){
         File* file = dynamic_cast<File*>(node);
+        if(!file){
+            std::cout<<"cat : cant cd such file"<<std::endl;
+            return;
+        }
         if(!file->checkPerm(game.isSuperUser(), PERM_READ)){//権限チェック
             return;
         }
@@ -329,7 +388,7 @@ void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
     for(FileSystemNode* node :nodes){
         //if (!node) { std::cout << "chmod: No such file: " << filename << std::endl; return; }
         
-if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
+        if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
             return;
         }
         if (mode == "+x") {
@@ -381,29 +440,22 @@ void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
         std::cout << "rm: missing command" << std::endl;
         return;
     }
+    Directory* trash_dir = game.getTrashDirectory();
+    if (!trash_dir) return; // ゴミ箱がなければ何もしない
     for(int i=1; i<args.size(); i++){
         auto nodes = game.resolvePaths(args[i]);
-        for(FileSystemNode* node : nodes){                
-            // if(!node){
-            //     std::cout << "rm "<< node->name <<": not found" << std::endl;
-            //     continue;
-            // }
-            // if (node->owner == FileSystemNode::Owner::ROOT && !game.isSuperUser()) {
-            //     std::cout << "rm "<< node->name <<": Permission denied" << std::endl;
-            //     continue;
-            // }
-            // // 権限チェック
-            // if (node->owner == FileSystemNode::Owner::ROOT && !game.isSuperUser()) {
-            //     std::cout << "rm: Permission denied" << std::endl;
-            //     return;
-            // }
+        for(FileSystemNode* node : nodes){
             if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
                 return;
             }
             Directory* parent = node->parent;
             if (parent) {
-                parent->removeChild(node->name); // ← ★★★ 新しいヘルパー関数を呼ぶ ★★★
-                std::cout << "Removed '" << args[1] << "'" << std::endl;
+                std::unique_ptr<FileSystemNode> ptr = parent->releaseChild(node->name);
+                if (ptr) {
+                    ptr->parent = trash_dir;
+                    trash_dir->addChild(std::move(ptr));
+                    // to do 容量処理追加
+                }
             }
         }
     }
