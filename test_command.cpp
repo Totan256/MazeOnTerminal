@@ -101,6 +101,14 @@ Game::Game() {
 
     // --- ② 初期設定：ファイルとディレクトリの配置 ---
     auto floor1 = std::make_unique<Directory>("floor1", root.get(), PERM_READ, FileSystemNode::Owner::PLAYER);
+    // trashの用意　メンバ変数にしてアクセスできるように
+    auto trash = std::make_unique<Directory>(".trash", root.get(), PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
+    this->trash_directory_ = trash.get();
+    root->addChild(std::move(trash));
+    //ログファイル
+    auto log = std::make_unique<File>("log.txt", root.get(), "", 0, 4, FileSystemNode::Owner::ROOT); // 権限なし
+    this->logText = log.get();
+    root->addChild(std::move(log));
     
     // ファイルを作成してfloor1に追加
     auto readme = std::make_unique<File>("readme.txt", floor1.get(),

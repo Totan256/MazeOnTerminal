@@ -11,6 +11,7 @@
 
 // --- クラスの前方宣言 ---
 class Directory;
+static const uint8_t PERM_NONE = 0b000; // 0
 static const uint8_t PERM_READ = 0b100; // 4
 static const uint8_t PERM_WRITE = 0b010; // 2
 static const uint8_t PERM_EXECUTE = 0b001; // 1
@@ -106,13 +107,15 @@ public:
 
     std::vector<FileSystemNode*> resolvePaths(const std::string& path);
 
-    
+    Directory* getTrashDirectory() const { return trash_directory_; }
 
 
 private:
     void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
     std::unique_ptr<Directory> root; // ファイルシステムの起点
     Directory* current_directory;    // プレイヤーの現在地
+    Directory* trash_directory_ = nullptr; // trash
+    File* logText = nullptr;
     bool is_superuser = false;
     std::string sudo_password = "1234";
 };
