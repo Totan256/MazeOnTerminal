@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <set>
 #include <vector>
 #include <memory>   // std::unique_ptr, std::make_unique
 #include <cstdint>  // uint8_t
@@ -165,12 +166,26 @@ class CommandProcessor {
 public:
     CommandProcessor(Game& game); // Gameの状態を操作するため参照を受け取る
     void execute(const std::string& input_line);
+    struct ShortOptsArgs {
+        std::set<char> options;
+        std::vector<std::string> paths;
+    };
+
+    struct LongOptsArgs {
+        std::map<std::string, std::string> options_with_value; // -name "file.txt"
+        std::set<std::string> flags; // -delete
+        std::vector<std::string> paths;
+    };
+
+    ShortOptsArgs parseShortOptions(const std::vector<std::string>& args);
+    LongOptsArgs parseLongOptions(const std::vector<std::string>& args);
 
 private:
     Game& game; // ゲーム本体への参照
 
     
-    std::map<std::string, bool> containOptions;
+    std::vector<std::string> containOptions;
+    std::vector<std::string> paths;
     
     // コマンド名と、それに対応する処理(関数)を結びつけるMap
     std::map<std::string, std::function<void(const std::vector<std::string>&)>> commands;

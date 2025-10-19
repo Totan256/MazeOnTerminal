@@ -196,7 +196,47 @@ CommandProcessor::CommandProcessor(Game& game) : game(game) {
     commands["find"] = [this](const auto& args){ this->cmd_find(args); };
     commands["mv"] = [this](const auto& args){ this->cmd_mv(args); };
 }
-
+CommandProcessor::ShortOptsArgs CommandProcessor::parseShortOptions(const std::vector<std::string>& args) {
+    ShortOptsArgs result;
+    for (size_t i = 1; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg.rfind("-", 0) == 0 && arg.length() > 1) {
+            for (size_t j = 1; j < arg.length(); ++j) {
+                char short_opt = arg[j];
+                if(game.usableOptions.count(&short_opt) && game.usableOptions[&short_opt]) { // 将来的な有効化チェック
+                    result.options.insert(short_opt);
+                }
+            }
+        } else {
+            result.paths.push_back(arg);
+        }
+    }
+    return result;
+}
+CommandProcessor::LongOptsArgs CommandProcessor::parseLongOptions(const std::vector<std::string>& args) {
+    LongOptsArgs result;
+    for (size_t i = 1; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg.rfind("-", 0) == 0) {
+            std::string opt_name = arg.substr(1); // '-' を取り除く
+            if(game.usableOptions.count(opt_name) && game.usableOptions[opt_name]){
+                // -name や -type のように、次の引数を値として取るオプション
+                if ((opt_name == "name" || opt_name == "type") && i + 1 < args.size()) {
+                    result.options_with_value[opt_name] = args[i + 1];
+                    i++; // 次の引数は消費したので、ループを1つ進める
+                } else {
+                // -delete のように、引数を取らないオプション（フラグ）
+                    result.flags.insert(opt_name);
+                }
+            }else{
+                result.paths.push_back(arg);
+            }
+        }else{
+            result.paths.push_back(arg);
+        }
+    }
+    return result;
+}
 
 void CommandProcessor::execute(const std::string& input_line) {
     game.outputStrings = {0};
@@ -232,19 +272,7 @@ void CommandProcessor::execute(const std::string& input_line) {
         std::cout << "Permission denied: " << command << std::endl;
         return;
     }
-    //オプションの抽出と確認
-    containOptions.clear();
-    for(int i=1; i<args.size(); i++){
-        std::string arg = args.at(i);
-        if(arg.front() = '-'){
-            for(int j=1; j<arg.size(); j++){
-                if(game.usableOptions[&arg.at(j)])
-                    containOptions[&arg.at(j)]=true;
-            }
-            args.erase(args.begin() + i);
-            i--;
-        }
-    }
+    
 
     //実行
     if (commands.count(command)) {
@@ -264,21 +292,11 @@ void CommandProcessor::execute(const std::string& input_line) {
 
 // --- 各コマンドの処理 ---
 void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
-    std::vector<std::string> paths;
-    bool long_format = false, all_files = false;
+    ShortOptsArgs parsed_args = parseShortOptions(args);
 
-    // 引数を解析してパスとオプションを特定
-    for (size_t i = 1; i < args.size(); i++) {
-        if (args[i] == "-la" || args[i] == "-al" ) {
-            long_format = true;all_files = true;
-        }else if (args[i] == "-l") {
-            long_format = true;
-        }else if (args[i] == "-a") {
-            all_files = true;
-        }else {
-            paths.push_back(args[i]);
-        }
-    }
+    bool long_format = parsed_args.options.count('l');
+    bool all_files = parsed_args.options.count('a');
+    std::vector<std::string> paths = parsed_args.paths;
 
     if(paths.empty()) 
         paths.push_back("."); // デフォルトはカレントディレクトリ
