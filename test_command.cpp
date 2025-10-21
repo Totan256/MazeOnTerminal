@@ -203,7 +203,8 @@ CommandProcessor::ShortOptsArgs CommandProcessor::parseShortOptions(const std::v
         if (arg.rfind("-", 0) == 0 && arg.length() > 1) {
             for (size_t j = 1; j < arg.length(); ++j) {
                 char short_opt = arg[j];
-                if(game.usableOptions.count(&short_opt) && game.usableOptions[&short_opt]) { // 将来的な有効化チェック
+                std::string opt_str(1, short_opt);
+                if(game.usableOptions.count(opt_str) && game.usableOptions[opt_str]){ // 将来的な有効化チェック
                     result.options.insert(short_opt);
                 }
             }
@@ -240,25 +241,37 @@ CommandProcessor::LongOptsArgs CommandProcessor::parseLongOptions(const std::vec
 
 void CommandProcessor::execute(const std::string& input_line) {
     game.outputStrings = {0};
-    std::stringstream ss(input_line);
-    std::string command;
-    ss >> command;
-
     std::vector<std::string> args;
     {
-        args.push_back(command);
+        std::stringstream ss(input_line);
         std::string arg;
         while(ss >> arg) {
             args.push_back(arg);
         }
     }
 
-    auto current_dir = game.getCurrentDirectory();
-    auto nodes = current_dir->findChildren(command);
+    if(this->executeInternal(args)){
+        game.logText->appendText(input_line + "\n");
+
+        //実行後の容量処理
+        if (game.getCurrentDiskSize() > game.getMaxDiskSize()) { // game.getCurrentDiskSize()は再帰計算を行う
+            std::cout << "DISK FULL. FILESYSTEM CORRUPTED. SHUTTING DOWN..." << std::endl;
+            exit(1);
+        }
+    }    
+}
+bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
+    std::string command = args.front();
+    //最初のコマンド名自体にワイルドカードが含まれていたら実行しない
+    if (command.find('*') != std::string::npos) {
+        std::cout << "Command not found: " << command << std::endl;
+        return false;
+    }
+    auto nodes = game.resolvePaths(command);
 
     if (nodes.empty()) {
         std::cout << "Command not found: " << command << std::endl;
-        return;
+        return false;
     }
     // TODO: ワイルドカード等で複数見つかった場合の処理。今は最初の一つだけを対象とする。
     FileSystemNode* command_node = nodes.front();
@@ -266,28 +279,21 @@ void CommandProcessor::execute(const std::string& input_line) {
     Executable* exec_file = dynamic_cast<Executable*>(command_node);
     if (!exec_file) {//実行ファイルかどうか確認
         std::cout << command << ": is not an executable file." << std::endl;
-        return;
+        return false;
     }
     if (!exec_file->checkPerm(game.isSuperUser(), PERM_EXECUTE)) {//権限チェック
         std::cout << "Permission denied: " << command << std::endl;
-        return;
-    }
-    
+        return false;
+    }    
 
     //実行
     if (commands.count(command)) {
         commands[command](args); // Mapから関数を呼び出す
         //ログテキストのサイズ増加
-        game.logText->appendText(input_line + "\n");
     } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
         std::cout << "Execution failed: internal error for command '" << command << "'" << std::endl;
     }
-
-    //実行後の容量処理
-    if (game.getCurrentDiskSize() > game.getMaxDiskSize()) { // game.getCurrentDiskSize()は再帰計算を行う
-        std::cout << "DISK FULL. FILESYSTEM CORRUPTED. SHUTTING DOWN..." << std::endl;
-        exit(1);
-    }
+    return true;
 }
 
 // --- 各コマンドの処理 ---
@@ -385,10 +391,13 @@ void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
 }
 
 void CommandProcessor::cmd_pwd(const std::vector<std::string>& args) {
+    if(args.size()!=1) return;
     // とりあえず現在のディレクトリ名だけ表示
     //std::cout << "/" << game.getCurrentDirectory()->name << std::endl;
     FileSystemNode *node = game.getCurrentDirectory();
     std::string s="";
+    s=node->name+s;
+    node=node->parent;
     while (node!=nullptr){
         s+="/";
         s=node->name+s;
@@ -442,10 +451,11 @@ void CommandProcessor::cmd_sudo(const std::vector<std::string>& args) {
 
         // sudoに続くコマンドを再実行
         std::vector<std::string> new_args(args.begin() + 1, args.end());
-        std::string command_name = new_args[0];
-        if(commands.count(command_name)) {
-            commands[command_name](new_args);
-        }
+        // std::string command_name = new_args[0];
+        // if(commands.count(command_name)) {
+        //     commands[command_name](new_args);
+        // }
+        this->executeInternal(new_args);
         
         game.setSuperUser(false); // コマンド実行後すぐに権限を戻す
     } else {

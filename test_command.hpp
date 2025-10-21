@@ -142,7 +142,7 @@ public:
     int getMaxDiskSize() const { return maxDiskSize; }
     int getCurrentDiskSize() const {
         if (root) {
-            return this->getCurrentDiskSize();
+            return root->getSize();
         }
         return 0;
     }
@@ -182,7 +182,7 @@ public:
 
 private:
     Game& game; // ゲーム本体への参照
-
+    bool executeInternal(const std::vector<std::string>& args);
     
     std::vector<std::string> containOptions;
     std::vector<std::string> paths;
