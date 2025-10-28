@@ -10,6 +10,9 @@
 #include <functional> // std::function
 #include <sstream>  // std::stringstream
 
+class Directory;
+class Game;
+
 // --- クラスの前方宣言 ---
 class Directory;
 static const uint8_t PERM_NONE = 0b000; // 0
@@ -65,6 +68,7 @@ public:
         : FileSystemNode(name, parent, permissions, size, owner), content(std::move(content)) {}
     
     std::string content;
+    bool isLarge = false;//catを使えないようにする
     void appendText(const std::string& text) {
         content += text;
         size += text.length();
@@ -72,6 +76,16 @@ public:
     int getSize() const override {
         return this->size;
     }
+};
+
+//実行妨害ノード
+class TrapNode : public FileSystemNode {
+public:
+    TrapNode(const std::string& name, Directory* parent, int size,Owner owner)
+        // サイズ0, 権限なし
+        : FileSystemNode(name, parent, PERM_NONE, size, owner) {}
+    
+    int getSize() const override { return this->size; }
 };
 
 // 実行可能なコマンドファイル
@@ -83,7 +97,18 @@ public:
         return this->size;
     }
 };
+class SymbolicLink : public FileSystemNode {
+public:
+    SymbolicLink(const std::string& name, Directory* parent, std::string target_path, uint8_t permissions, int size, Owner owner)
+        : FileSystemNode(name, parent, permissions, size, owner), target_path(std::move(target_path)) {}
+    
+    int getSize() const override {
+        // リンク自体のサイズ (パス文字列の長さ)
+        return this->size; 
+    }
 
+    std::string target_path; // リンク先のパス文字列 (例: "/bin/make_maze")
+};
 // ファイルやディレクトリを格納するコンテナ
 class Directory : public FileSystemNode {
 public:
@@ -118,46 +143,7 @@ private:
     std::vector<std::unique_ptr<FileSystemNode>> children;
 };
 
-//==============================================================================
-// ## 3. ゲーム全体の状態を管理するクラス
-//==============================================================================
-class Game {
-public:
-    Game(); // コンストラクタでファイルシステムを構築
-    void run(); // メインループを実行
 
-    Directory* getCurrentDirectory() const { return current_directory; }
-    void setCurrentDirectory(Directory* dir) { current_directory = dir; }
-
-    void setSuperUser(bool status) { is_superuser = status; }
-    bool isSuperUser() const { return is_superuser; }
-    std::string getSudoPassword() const { return sudo_password; }
-
-    std::vector<FileSystemNode*> resolvePaths(const std::string& path);
-
-    Directory* getTrashDirectory() const { return trash_directory_; }
-
-    std::vector<std::string> outputStrings;//出力を一個にまとめて行う用
-
-    int getMaxDiskSize() const { return maxDiskSize; }
-    int getCurrentDiskSize() const {
-        if (root) {
-            return root->getSize();
-        }
-        return 0;
-    }
-
-    File* logText = nullptr;
-    std::map<std::string, bool> usableOptions;
-private:
-    void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
-    std::unique_ptr<Directory> root; // ファイルシステムの起点
-    Directory* current_directory;    // プレイヤーの現在地
-    Directory* trash_directory_ = nullptr; // trash
-    bool is_superuser = false;
-    std::string sudo_password = "1234";
-    int maxDiskSize = 256;
-};
 
 //==============================================================================
 // ## 4. コマンドを処理するクラス
@@ -189,6 +175,8 @@ private:
     
     // コマンド名と、それに対応する処理(関数)を結びつけるMap
     std::map<std::string, std::function<void(const std::vector<std::string>&)>> commands;
+    std::string getNodeFullPath(FileSystemNode* node);
+    void findHelper(Directory* dir, const std::string& name_pattern, const std::string& type_filter);
 
     // 各コマンドの処理を実装するメンバ関数
     void cmd_ls(const std::vector<std::string>& args);
@@ -199,7 +187,92 @@ private:
     void cmd_sudo(const std::vector<std::string>& args);
     void cmd_rm(const std::vector<std::string>& args);
     void cmd_find(const std::vector<std::string>& args);
+    void cmd_grep(const std::vector<std::string>& args);
     void cmd_mv(const std::vector<std::string>& args);
+    void cmd_ps(const std::vector<std::string>& args);
+    void cmd_kill(const std::vector<std::string>& args);
+};
 
-    
+class Process{
+public:
+    Game* game;
+    Process(Game& _game, int _id){
+        id = _id;
+        game = &_game;
+        isOperating = true;
+    }
+    virtual void update() = 0;
+    int id;
+    bool isOperating;
+    std::string name;
+};
+
+class MazeMaster : public Process{
+public:
+    MazeMaster(Game& game, int id) : Process(game, id) {
+        name = "MazeMaster";
+    }
+    void update() override{
+
+    }
+};
+
+class Trader : public Process{
+public:
+    Trader(Game& game, int id) : Process(game, id) {
+        name = "trader";
+    }
+    void update() override{
+
+    }
+};
+
+//==============================================================================
+// ## 3. ゲーム全体の状態を管理するクラス
+//==============================================================================
+class Game {
+public:
+    Game(); // コンストラクタでファイルシステムを構築
+    void run(); // メインループを実行
+
+    Directory* getCurrentDirectory() const { return current_directory; }
+    void setCurrentDirectory(Directory* dir) { current_directory = dir; }
+
+    void setSuperUser(bool status) { is_superuser = status; }
+    bool isSuperUser() const { return is_superuser; }
+    std::string getSudoPassword() const { return sudo_password; }
+
+    std::vector<FileSystemNode*> resolvePaths(const std::string& path);
+
+    Directory* getTrashDirectory() const { return trash_directory_; }
+
+    std::vector<std::string> outputStrings;//出力を一個にまとめて行う用
+
+    int getMaxDiskSize() const { return maxDiskSize; }
+    int getCurrentDiskSize() const {
+        if (root) {
+            return root->getSize();
+        }
+        return 0;
+    }
+
+    File* logText = nullptr;
+    std::map<std::string, bool> usableOptions;
+    std::string aliasConvert(std::string arg){
+        auto it = aliasesList.find(arg);
+        if(it != aliasesList.end()){
+            return it->second;
+        }
+        return arg;
+    }
+    std::map<int, std::unique_ptr<Process>> processList;
+private:
+    void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
+    std::unique_ptr<Directory> root; // ファイルシステムの起点
+    Directory* current_directory;    // プレイヤーの現在地
+    Directory* trash_directory_ = nullptr; // trash
+    bool is_superuser = false;
+    std::string sudo_password = "1234";
+    int maxDiskSize = 256;
+    std::map<std::string, std::string> aliasesList;
 };

@@ -96,39 +96,62 @@ void Directory::listContents(bool show_details, bool show_all) const {
 // Gameクラスの実装
 //==============================================================================
 Game::Game() {
+    //エイリアスの設定
+    aliasesList.emplace("cd", "cd_locked");
+    aliasesList.emplace("sudo", "sudo_locked");
+    
     // --- ① 起点：「ルートディレクトリ」の準備 ---
-    root = std::make_unique<Directory>("/", nullptr, PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
-    current_directory = root.get();
+    this->root = std::make_unique<Directory>("/", nullptr, PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
+    
+    //初期プロセスの追加
+    int mazeMasterID = 0;
+    int traderID = 1;
+    processList.emplace(mazeMasterID, std::make_unique<MazeMaster>(*this, mazeMasterID));
+    processList.emplace(traderID, std::make_unique<Trader>(*this, traderID));
+
 
     // --- ② 初期設定：ファイルとディレクトリの配置 ---
-    auto floor1 = std::make_unique<Directory>("floor1", root.get(), PERM_READ, FileSystemNode::Owner::PLAYER);
-    // trashの用意　メンバ変数にしてアクセスできるように
-    auto trash = std::make_unique<Directory>(".trash", root.get(), PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
-    this->trash_directory_ = trash.get();
-    root->addChild(std::move(trash));
-    //ログファイル
-    auto log = std::make_unique<File>("log.txt", root.get(), "", 0, 4, FileSystemNode::Owner::ROOT); // 権限なし
-    this->logText = log.get();
-    root->addChild(std::move(log));
+    auto floor1 = std::make_unique<Directory>("floor1", this->root.get(), PERM_READ, FileSystemNode::Owner::PLAYER);
+    
+    {// trashの用意　メンバ変数にしてアクセスできるように
+        auto trash = std::make_unique<Directory>(".trash", this->root.get(), PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
+        this->trash_directory_ = trash.get();
+        this->root->addChild(std::move(trash));
+        // trashに妨害ノード追加
+        auto trap = std::make_unique<TrapNode>(".ls_trap", trash.get(), 50, FileSystemNode::Owner::ROOT);
+        this->trash_directory_->addChild(std::move(trap));
+    }
+    {//ログファイル
+        auto log = std::make_unique<File>("log.txt", this->root.get(), "", 0, 4, FileSystemNode::Owner::ROOT); // 権限なし
+        this->logText = log.get();
+        this->root->addChild(std::move(log));
+    }
+    {//初期から所持しているコマンド
+        auto ls = std::make_unique<Executable>("ls", this->root.get(), PERM_EXECUTE,4 , FileSystemNode::Owner::PLAYER);
+        this->root->addChild(std::move(ls));
+    }{
+        auto cat = std::make_unique<Executable>("cat", this->root.get(), PERM_EXECUTE,4 , FileSystemNode::Owner::PLAYER);
+        this->root->addChild(std::move(cat));
+    }
     
     // ファイルを作成してfloor1に追加
-    auto readme = std::make_unique<File>("readme.txt", floor1.get(),
+    auto readme = std::make_unique<File>("readme.txt", this->root.get(),
         "Escape from this maze.\nUse 'ls -l' to see details.\nUse 'chmod +x' to run commands.",
         PERM_READ | PERM_WRITE, 8, FileSystemNode::Owner::PLAYER);
     
-    auto secret = std::make_unique<File>("secret.txt", floor1.get(),
+    auto secret = std::make_unique<File>("secret.txt", this->root.get(),
         "The password is '1234'.", 0, 4, FileSystemNode::Owner::PLAYER); // 権限なし
 
-    auto run_cmd = std::make_unique<Executable>("run.sh", floor1.get(), PERM_READ, 16, FileSystemNode::Owner::PLAYER); // 実行権限なし
+    auto run_cmd = std::make_unique<Executable>("run.sh", this->root.get(), PERM_READ, 16, FileSystemNode::Owner::PLAYER); // 実行権限なし
 
-    floor1->addChild(std::move(readme));
-    floor1->addChild(std::move(secret));
-    floor1->addChild(std::move(run_cmd));
+    this->root->addChild(std::move(readme));
+    this->root->addChild(std::move(secret));
+    this->root->addChild(std::move(run_cmd));
 
-    root->addChild(std::move(floor1));
+    this->root->addChild(std::move(floor1));
     
     // ゲーム開始時の現在地を設定
-    current_directory = static_cast<Directory*>(root->findChildren("floor1").front());
+    current_directory = this->root.get();
 }
 
 void Game::run() {
@@ -142,6 +165,12 @@ void Game::run() {
         if (line == "exit") break;
 
         processor.execute(line);
+
+        for(auto const& [pid, process] : processList){
+            if (process) {
+                process->update();
+            }
+        }
     }
 }
 
@@ -185,16 +214,19 @@ std::vector<FileSystemNode*> Game::resolvePaths(const std::string& path) {
 // CommandProcessorクラスの実装
 //==============================================================================
 CommandProcessor::CommandProcessor(Game& game) : game(game) {
-    // コマンド名と、実行するラムダ式を結びつける
+    // コマンド名と、実行するラムダ式を結びつける//組み込みは除外
     commands["ls"] = [this](const auto& args){ this->cmd_ls(args); };
-    commands["cd"] = [this](const auto& args){ this->cmd_cd(args); };
+    //commands["cd"] = [this](const auto& args){ this->cmd_cd(args); };
     commands["cat"] = [this](const auto& args){ this->cmd_cat(args); };
     commands["pwd"] = [this](const auto& args){ this->cmd_pwd(args); };
     commands["chmod"] = [this](const auto& args){ this->cmd_chmod(args); };
-    commands["sudo"] = [this](const auto& args){ this->cmd_sudo(args); };
+    //commands["sudo"] = [this](const auto& args){ this->cmd_sudo(args); };
     commands["rm"] = [this](const auto& args){ this->cmd_rm(args); };
     commands["find"] = [this](const auto& args){ this->cmd_find(args); };
+    commands["grep"] = [this](const auto& args){ this->cmd_grep(args); };
     commands["mv"] = [this](const auto& args){ this->cmd_mv(args); };
+    commands["ps"] = [this](const auto& args){ this->cmd_ps(args); };
+    commands["kill"] = [this](const auto& args){ this->cmd_kill(args); };
 }
 CommandProcessor::ShortOptsArgs CommandProcessor::parseShortOptions(const std::vector<std::string>& args) {
     ShortOptsArgs result;
@@ -250,6 +282,8 @@ void CommandProcessor::execute(const std::string& input_line) {
         }
     }
 
+    if (args.empty()) return;
+
     if(this->executeInternal(args)){
         game.logText->appendText(input_line + "\n");
 
@@ -267,13 +301,30 @@ bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
         std::cout << "Command not found: " << command << std::endl;
         return false;
     }
-    auto nodes = game.resolvePaths(command);
+    //エイリアス
+    command = game.aliasConvert(command);
+    //組み込みコマンドの実行
+    if(command=="cd"){
+        cmd_cd(args);
+        return true;
+    }else if(command=="sudo"){
+        cmd_sudo(args);
+        return true;
+    }else if (command == "cd_locked" || command == "sudo_locked") {
+        std::cout << "Command '" << args.front() << "' is locked." << std::endl;
+        return true;
+    }
 
+    //パス解析（シンボリックリンク）
+    auto nodes = game.resolvePaths(command);
     if (nodes.empty()) {
         std::cout << "Command not found: " << command << std::endl;
         return false;
     }
-    // TODO: ワイルドカード等で複数見つかった場合の処理。今は最初の一つだけを対象とする。
+    
+    {//シンボリックリンクだった時の処理
+
+    }
     FileSystemNode* command_node = nodes.front();
     //確認
     Executable* exec_file = dynamic_cast<Executable*>(command_node);
@@ -287,8 +338,8 @@ bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
     }    
 
     //実行
-    if (commands.count(command)) {
-        commands[command](args); // Mapから関数を呼び出す
+    if (commands.count(command_node->name)) {
+        commands[command_node->name](args); // Mapから関数を呼び出す
         //ログテキストのサイズ増加
     } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
         std::cout << "Execution failed: internal error for command '" << command << "'" << std::endl;
@@ -307,7 +358,7 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
     if(paths.empty()) 
         paths.push_back("."); // デフォルトはカレントディレクトリ
 
-    for(auto path : paths){            
+    for(auto path : paths){
         // パスを解決して対象ノードを取得
         //FileSystemNode* target_node = game.resolvePath(path);
         auto target_nodes = game.resolvePaths(path);
@@ -319,6 +370,17 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
                 if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
                     std::cout << "ls: cannot open directory '" << node->name << "': Permission denied" << std::endl;
                     continue;
+                }
+                bool trap_found = false;
+                for (auto child : target_dir->getChildren()) {
+                    if (dynamic_cast<TrapNode*>(child)) {
+                        trap_found = true;
+                        break;
+                    }
+                }
+                if (trap_found) {
+                    std::cout << "ls: cannot open directory '" << node->name << "': too large" << std::endl;
+                    continue; // このディレクトリの ls をスキップ
                 }
                 target_dir->listContents(long_format, all_files);
             } else if (node) { // ディレクトリではないが、ファイルとして存在する場合
@@ -383,27 +445,35 @@ void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
             return;
         }
         if(file) {
+            if(file->isLarge){
+               std::cout << "cat: " << filename << " is too large" << std::endl;
+            }
             std::cout << file->content << std::endl;
         } else {
             std::cout << "cat: " << filename << " is not a regular file." << std::endl;
         }
     }    
 }
+std::string CommandProcessor::getNodeFullPath(FileSystemNode* node){
+    if (!node) return "";
+    if (node->parent == nullptr) return "/";//ルート
+
+    std::string s = node->name;
+    FileSystemNode* current = node->parent;
+    while (current != nullptr){
+        if (current->parent == nullptr){//ルートディレクトリ
+            s = "/" + s;
+            break;
+        }
+        s = current->name + "/" + s;
+        current = current->parent;
+    }
+    return s;
+}
 
 void CommandProcessor::cmd_pwd(const std::vector<std::string>& args) {
-    if(args.size()!=1) return;
-    // とりあえず現在のディレクトリ名だけ表示
-    //std::cout << "/" << game.getCurrentDirectory()->name << std::endl;
-    FileSystemNode *node = game.getCurrentDirectory();
-    std::string s="";
-    s=node->name+s;
-    node=node->parent;
-    while (node!=nullptr){
-        s+="/";
-        s=node->name+s;
-        node=node->parent;
-    }
-    std::cout <<s<< std::endl;
+    if(args.size() != 1) return;
+    std::cout << getNodeFullPath(game.getCurrentDirectory()) << std::endl;
 }
 
 void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
@@ -488,11 +558,147 @@ void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
         }
     }
 }
+void CommandProcessor::findHelper(Directory* dir, const std::string& name_pattern, const std::string& type_filter) {
+    // 権限チェック
+    if (!dir->checkPerm(game.isSuperUser(), PERM_READ)) {
+        std::cout << "find: '" << getNodeFullPath(dir) << "': Permission denied" << std::endl;
+        return;
+    }
+
+    // ディレクトリ内の全子要素をチェック
+    for (FileSystemNode* child : dir->getChildren()) {
+        bool name_match = matchWildCard(child->name.c_str(), name_pattern.c_str());
+        bool type_match = true; // デフォルトはOK
+
+        // タイプチェック
+        if (type_filter == "f") { // 'f' (File)
+            type_match = (dynamic_cast<File*>(child) != nullptr);
+        } else if (type_filter == "d") { // 'd' (Directory)
+            type_match = (dynamic_cast<Directory*>(child) != nullptr);
+        }
+
+        // 両方マッチしたらパスを出力
+        if (name_match && type_match) {
+            std::cout << getNodeFullPath(child) << std::endl;
+        }
+
+        // 子がディレクトリなら再帰
+        Directory* child_dir = dynamic_cast<Directory*>(child);
+        if (child_dir) {
+            findHelper(child_dir, name_pattern, type_filter);
+        }
+    }
+}
 
 void CommandProcessor::cmd_find(const std::vector<std::string>& args){
     if (args.size() < 2) {
-        std::cout << "find: missing command" << std::endl;
+        std::cout << "find: missing path operand" << std::endl;
         return;
+    }
+    
+    // 既存のパーサーを利用
+    LongOptsArgs parsed_args = parseLongOptions(args);
+    
+    std::string search_path = ".";
+    if (!parsed_args.paths.empty()) {
+        search_path = parsed_args.paths[0]; // 最初のパスを探索起点とする
+    }
+
+    // -name オプションの解析
+    std::string name_pattern = "*"; // デフォルトは全一致
+    if (parsed_args.options_with_value.count("name")) {
+        name_pattern = parsed_args.options_with_value["name"];
+    }
+    
+    // -type オプションの解析 (f: file, d: directory)
+    std::string type_filter = ""; // デフォルトはタイプ問わず
+    if (parsed_args.options_with_value.count("type")) {
+        type_filter = parsed_args.options_with_value["type"];
+    }
+
+    // 探索開始
+    auto start_nodes = game.resolvePaths(search_path);
+    if (start_nodes.empty()) {
+        std::cout << "find: '" << search_path << "': No such file or directory" << std::endl;
+        return;
+    }
+
+    for (FileSystemNode* node : start_nodes) {
+        Directory* start_dir = dynamic_cast<Directory*>(node);
+        if (start_dir) {
+            // 起点がディレクトリなら再帰探索開始
+            findHelper(start_dir, name_pattern, type_filter);
+        } else {
+            // 起点がファイルなら、それ自身をチェック
+            bool name_match = matchWildCard(node->name.c_str(), name_pattern.c_str());
+            // (ファイルなので "d" フィルタには絶対一致しない)
+            bool type_match = (type_filter != "d"); 
+            
+            if (name_match && type_match) {
+                std::cout << getNodeFullPath(node) << std::endl;
+            }
+        }
+    }
+}
+
+// test_command.cpp (CommandProcessor の実装内)
+
+// ★ 新規
+void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        std::cout << "grep: missing pattern" << std::endl;
+        return;
+    }
+    if (args.size() < 3) {
+        std::cout << "grep: missing file operand" << std::endl;
+        return;
+    }
+
+    std::string pattern = args[1];
+    std::vector<std::string> file_paths;
+    for (size_t i = 2; i < args.size(); ++i) {
+        file_paths.push_back(args[i]);
+    }
+    
+    bool print_filename = (file_paths.size() > 1); // 検索対象が複数ならファイル名表示
+
+    for (const std::string& path : file_paths) {
+        auto nodes = game.resolvePaths(path);
+        if (nodes.empty()) {
+            std::cout << "grep: " << path << ": No such file or directory" << std::endl;
+            continue;
+        }
+
+        for (FileSystemNode* node : nodes) {
+            if (dynamic_cast<Directory*>(node)) {
+                std::cout << "grep: " << node->name << ": is a directory" << std::endl;
+                continue;
+            }
+            
+            File* file = dynamic_cast<File*>(node);
+            if (!file) {
+                // Executable など、File ではないノードはスキップ
+                continue; 
+            }
+            
+            if (!file->checkPerm(game.isSuperUser(), PERM_READ)) {
+                std::cout << "grep: " << node->name << ": Permission denied" << std::endl;
+                continue;
+            }
+
+            // ファイル内容を行ごとに検索
+            std::stringstream ss(file->content);
+            std::string line;
+            while (std::getline(ss, line)) {
+                // std::string::find でパターンが含まれるかチェック
+                if (line.find(pattern) != std::string::npos) {
+                    if (print_filename) {
+                        std::cout << node->name << ":";
+                    }
+                    std::cout << line << std::endl;
+                }
+            }
+        }
     }
 }
 
@@ -541,12 +747,49 @@ void CommandProcessor::cmd_mv(const std::vector<std::string>& args) {
         }
     }
 }
-
+void CommandProcessor::cmd_ps(const std::vector<std::string>& args) {
+    if (args.size() != 1) {
+        std::cout << "ps: missing command" << std::endl;
+        return;
+    }
+    for(auto const& [pid, process] : game.processList){
+        if (process) {
+            std::cout<<"id="<< process->id<<" : name="<<process->name << std::endl;
+        }
+    }
+}
+void CommandProcessor::cmd_kill(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        std::cout << "kill: missing command" << std::endl;
+        return;
+    }
+    
+    for(int i=1; i<args.size(); i++){
+        try {
+            int id = stoi(args.at(i));
+            if(game.processList.count(id)){
+                game.processList.erase(id);
+            }else{
+                std::cout<<"no process : id = "<< id <<std::endl;
+            }
+        } catch (const std::invalid_argument& e) {
+            std::cout << "kill: argument must be a process ID" << std::endl;
+            continue; // 次の引数へ
+        } catch (const std::out_of_range& e) {
+            std::cout << "kill: process ID out of range" << std::endl;
+            continue; // 次の引数へ
+        }
+        
+    }
+}
 //==============================================================================
 // ## main関数
 //==============================================================================
 int main() {
+    std::cerr << "main start\n";
     Game game;
+    std::cerr << "game constructed\n";
     game.run();
+    std::cerr << "game.run returned\n";
     return 0;
 }
