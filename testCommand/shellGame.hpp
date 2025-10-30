@@ -8,9 +8,9 @@
 #include <map>
 #include <memory> // std::unique_ptr
 
-class Game {
+class ShellGame {
 public:
-    Game(); // コンストラクタでファイルシステムを構築
+    ShellGame(); // コンストラクタでファイルシステムを構築
     void run(); // メインループを実行
 
     Directory* getCurrentDirectory() const { return current_directory; }

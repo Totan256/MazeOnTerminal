@@ -9,13 +9,13 @@
 #include <sstream>    // std::stringstream
 
 
-class Game;
+class ShellGame;
 class FileSystemNode;
 class Directory;
 
 class CommandProcessor {
 public:
-    CommandProcessor(Game& game); // Gameの状態を操作するため参照を受け取る
+    CommandProcessor(ShellGame& game); // Gameの状態を操作するため参照を受け取る
     void execute(const std::string& input_line, const std::string& execterName);
     struct ShortOptsArgs {
         std::set<char> options;
@@ -32,7 +32,7 @@ public:
     LongOptsArgs parseLongOptions(const std::vector<std::string>& args);
 
 private:
-    Game& game; // ゲーム本体への参照
+    ShellGame& game; // ゲーム本体への参照
     bool executeInternal(const std::vector<std::string>& args);
     
     std::vector<std::string> containOptions;

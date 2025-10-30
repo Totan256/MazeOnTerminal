@@ -4,7 +4,7 @@
 #include "shellGame.hpp"
 #include "fileSystem.hpp"
 
-CommandProcessor::CommandProcessor(Game& game) : game(game){
+CommandProcessor::CommandProcessor(ShellGame& game) : game(game){
     
     // コマンド名と、実行するラムダ式を結びつける//組み込みは除外
     commands["ls"] = [this](const auto& args){ this->cmd_ls(args); };

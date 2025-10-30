@@ -3,7 +3,7 @@
 
 int main() {
     std::cerr << "main start\n";
-    Game game; // ★Gameの実体を作成するために game.hpp が必要
+    ShellGame game;
     std::cerr << "game constructed\n";
     game.run();
     std::cout << game.outputString.str();

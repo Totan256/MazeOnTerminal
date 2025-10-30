@@ -2,7 +2,7 @@
 #include "commandProcessor.hpp"
 
 
-Game::Game() {
+ShellGame::ShellGame() {
     //エイリアスの設定
     aliasesList.emplace("cd", "cd_locked");
     aliasesList.emplace("sudo", "sudo_locked");
@@ -61,7 +61,7 @@ Game::Game() {
     current_directory = this->root.get();
 }
 
-void Game::run() {
+void ShellGame::run() {
     CommandProcessor processor(*this);
     std::string line;
     std::cout << "Welcome to Command Maze. Type 'exit' to quit." << std::endl;
@@ -81,7 +81,7 @@ void Game::run() {
     }
 }
 
-void Game::resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results) {
+void ShellGame::resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results) {
     if (index == parts.size()) {
         results.insert(results.end(), current_nodes.begin(), current_nodes.end());
         return;
@@ -102,11 +102,11 @@ void Game::resolvePathsRecursive(const std::vector<std::string>& parts, size_t i
     }
 }
 
-std::vector<FileSystemNode*> Game::resolvePaths(const std::string& path) {
+std::vector<FileSystemNode*> ShellGame::resolvePaths(const std::string& path) {
     return resolvePaths(path, current_directory);
 }
 
-std::vector<FileSystemNode*> Game::resolvePaths(const std::string& path, Directory* baseDir){
+std::vector<FileSystemNode*> ShellGame::resolvePaths(const std::string& path, Directory* baseDir){
     Directory* start_dir = (path.front() == '/') ? root.get() : baseDir;
     if (path == "/" || path == ".") return {start_dir};
     if (path == "..") return {start_dir->parent ? start_dir->parent : start_dir};
@@ -123,7 +123,7 @@ std::vector<FileSystemNode*> Game::resolvePaths(const std::string& path, Directo
     return results;
 }
 
-std::vector<FileSystemNode*> Game::resolvePathsWithSymbolic(const std::string& path){
+std::vector<FileSystemNode*> ShellGame::resolvePathsWithSymbolic(const std::string& path){
     std::vector<FileSystemNode*> final_results;
     std::vector<SymbolicLink*> link_work_queue;
 

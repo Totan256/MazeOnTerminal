@@ -1,12 +1,12 @@
 #pragma once
 
 #include <string>
-class Game;
+class ShellGame;
 
 class Process{
 public:
-    Game* game;
-    Process(Game& _game, int _id){
+    ShellGame* game;
+    Process(ShellGame& _game, int _id){
         id = _id;
         game = &_game;
         isOperating = true;
@@ -19,7 +19,7 @@ public:
 
 class MazeMaster : public Process{
 public:
-    MazeMaster(Game& game, int id) : Process(game, id) {
+    MazeMaster(ShellGame& game, int id) : Process(game, id) {
         name = "MazeMaster";
     }
     void update() override{
@@ -29,7 +29,7 @@ public:
 
 class Trader : public Process{
     public:
-    Trader(Game& game, int id) : Process(game, id) {
+    Trader(ShellGame& game, int id) : Process(game, id) {
         name = "trader";
     }
     void update() override{
