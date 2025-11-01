@@ -65,7 +65,7 @@ CommandProcessor::LongOptsArgs CommandProcessor::parseLongOptions(const std::vec
 
 void CommandProcessor::execute(const std::string& input_line, const std::string& execterName) {
     game.outputString.clear();
-    game.outputString << "Log : Name=" << execterName << std::endl;
+    game.outputString.push_back("Log : Name=" + execterName);
     std::vector<std::string> args;
     {
         std::stringstream ss(input_line);
@@ -82,7 +82,7 @@ void CommandProcessor::execute(const std::string& input_line, const std::string&
 
         //実行後の容量処理
         if (game.getCurrentDiskSize() > game.getMaxDiskSize()) { // game.getCurrentDiskSize()は再帰計算を行う
-            game.outputString << "DISK FULL. FILESYSTEM CORRUPTED. SHUTTING DOWN..." << std::endl;
+            game.outputString.push_back("DISK FULL. FILESYSTEM CORRUPTED. SHUTTING DOWN...");
             exit(1);
         }
     }    
@@ -91,7 +91,7 @@ bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
     std::string command = args.front();
     //最初のコマンド名自体にワイルドカードが含まれていたら実行しない
     if (command.find('*') != std::string::npos) {
-        game.outputString << "Command not found: " << command << std::endl;
+        game.outputString.push_back("Command not found: " + command);
         return false;
     }
     //エイリアス
@@ -104,29 +104,29 @@ bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
         cmd_sudo(args);
         return true;
     }else if (command == "cd_locked" || command == "sudo_locked") {
-        game.outputString << "Command '" << args.front() << "' is locked." << std::endl;
+        game.outputString.push_back("Command '" + args.front() + "' is locked.");
         return true;
     }
 
     //パス解析（シンボリックリンク）
     auto nodes = game.resolvePathsWithSymbolic(command);
     if (nodes.empty()) {
-        game.outputString << "Command not found: " << command << std::endl;
+        game.outputString.push_back("Command not found: " + command);
         return false;
     }
     if(nodes.size()!=1){
-        game.outputString << "cant use this type"<< std::endl;
+        game.outputString.push_back("cant use this type");
         return false;
     }
     FileSystemNode* command_node = nodes.front();
     //確認
     Executable* exec_file = dynamic_cast<Executable*>(command_node);
     if (!exec_file) {//実行ファイルかどうか確認
-        game.outputString << command << ": is not an executable file." << std::endl;
+        game.outputString.push_back(command + ": is not an executable file.");
         return false;
     }
     if (!exec_file->checkPerm(game.isSuperUser(), PERM_EXECUTE)) {//権限チェック
-        game.outputString << "Permission denied: " << command << std::endl;
+        game.outputString.push_back("Permission denied: " + command);
         return false;
     }    
 
@@ -135,7 +135,7 @@ bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
         commands[command_node->name](args); // Mapから関数を呼び出す
         //ログテキストのサイズ増加
     } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
-        game.outputString << "Execution failed: internal error for command '" << command << "'" << std::endl;
+        game.outputString.push_back("Execution failed: internal error for command '" + command + "'");
     }
     return true;
 }
@@ -161,7 +161,7 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
             Directory* target_dir = dynamic_cast<Directory*>(node);
             if (target_dir) { // まず、ディレクトリかどうかを確認
                 if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
-                    game.outputString << "ls: cannot open directory '" << node->name << "': Permission denied" << std::endl;
+                    game.outputString.push_back("ls: cannot open directory '" + node->name + "': Permission denied");
                     continue;
                 }
                 bool trap_found = false;
@@ -172,16 +172,16 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
                     }
                 }
                 if (trap_found) {
-                    game.outputString << "ls: cannot open directory '" << node->name << "': too large" << std::endl;
+                    game.outputString.push_back("ls: cannot open directory '" + node->name + "': too large");
                     continue; // このディレクトリの ls をスキップ
                 }
-                game.outputString << target_dir->listContents(long_format, all_files).str();
+                game.outputString.push_back(target_dir->listContents(long_format, all_files).str());
             } else if (node) { // ディレクトリではないが、ファイルとして存在する場合
                 if(!node->checkPerm(game.isSuperUser(), PERM_READ)){
-                     game.outputString << "ls: cannot access '" << node->name << "': Permission denied" << std::endl;
+                     game.outputString.push_back("ls: cannot access '" + node->name + "': Permission denied");
                      continue;
                 }
-                game.outputString << node->name << std::endl;
+                game.outputString.push_back(node->name);
             }
         }
     }
@@ -194,18 +194,18 @@ void CommandProcessor::cmd_cd(const std::vector<std::string>& args) {
     auto nodes = game.resolvePaths(path);
     if(nodes.size() != 1)
     {
-        game.outputString<<"cd : cant "<<std::endl;
+        game.outputString.push_back("cd : cant ");
     }
     FileSystemNode* target_node = nodes.front();
     
     if (!target_node) {
-        game.outputString << "cd: No such file or directory: " << path << std::endl;
+        game.outputString.push_back("cd: No such file or directory: " + path);
         return;
     }
     
     Directory* target_dir = dynamic_cast<Directory*>(target_node);
     if(!target_dir){
-        game.outputString<<"cd : cant cd such file"<<std::endl;
+        game.outputString.push_back("cd : cant cd such file");
         return;
     }
     if(!target_dir->checkPerm(game.isSuperUser(), PERM_EXECUTE)){//権限チェック
@@ -214,24 +214,24 @@ void CommandProcessor::cmd_cd(const std::vector<std::string>& args) {
     if (target_dir) {
         // 権限チェックはここに集約できる
         if (path == ".." && !(game.getCurrentDirectory()->permissions & PERM_EXECUTE)) {
-            game.outputString << "cd: ..: Permission denied." << std::endl;
+            game.outputString.push_back("cd: ..: Permission denied.");
             return;
         }
         game.setCurrentDirectory(target_dir);
     } else {
-        game.outputString << "cd: Not a directory: " << path << std::endl;
+        game.outputString.push_back("cd: Not a directory: " + path);
     }
 }
 
 void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
-    if (args.size() < 2) { game.outputString << "cat: missing operand" << std::endl; return; }
+    if (args.size() < 2) { game.outputString.push_back("cat: missing operand"); return; }
     const std::string& filename = args[1];
     auto nodes = game.resolvePaths(args[1]);
 
     for(FileSystemNode* node : nodes){
         File* file = dynamic_cast<File*>(node);
         if(!file){
-            game.outputString<<"cat : cant cd such file"<<std::endl;
+            game.outputString.push_back("cat : cant cd such file");
             return;
         }
         if(!file->checkPerm(game.isSuperUser(), PERM_READ)){//権限チェック
@@ -239,11 +239,11 @@ void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
         }
         if(file) {
             if(file->isLarge){
-               game.outputString << "cat: " << filename << " is too large" << std::endl;
+               game.outputString.push_back("cat: " + filename + " is too large");
             }
-            game.outputString << file->content << std::endl;
+            game.outputString.push_back(file->content);
         } else {
-            game.outputString << "cat: " << filename << " is not a regular file." << std::endl;
+            game.outputString.push_back("cat: " + filename + " is not a regular file.");
         }
     }    
 }
@@ -266,30 +266,30 @@ std::string CommandProcessor::getNodeFullPath(FileSystemNode* node){
 
 void CommandProcessor::cmd_pwd(const std::vector<std::string>& args) {
     if(args.size() != 1) return;
-    game.outputString << getNodeFullPath(game.getCurrentDirectory()) << std::endl;
+    game.outputString.push_back(getNodeFullPath(game.getCurrentDirectory()));
 }
 
 void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
-    if (args.size() != 3) { game.outputString << "chmod: missing operand" << std::endl; return; }
+    if (args.size() != 3) { game.outputString.push_back("chmod: missing operand"); return; }
     const std::string& mode = args[1];
     const std::string& filename = args[2];
     auto nodes = game.resolvePaths(args[2]);
 
     for(FileSystemNode* node :nodes){
-        //if (!node) { game.outputString << "chmod: No such file: " << filename << std::endl; return; }
+        //if (!node) { game.outputString.push_back("chmod: No such file: " + filename); return; }
         
         if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
             return;
         }
         if (mode == "+x") {
             node->permissions |= PERM_EXECUTE;
-            game.outputString << "Set execute permission on " << filename << std::endl;
+            game.outputString.push_back("Set execute permission on " + filename);
         } else if (mode == "+r") {
             node->permissions |= PERM_READ;
-            game.outputString << "Set read permission on " << filename << std::endl;
+            game.outputString.push_back("Set read permission on " + filename);
         } // 他の権限も同様に追加可能
         else {
-            game.outputString << "chmod: Invalid mode: " << mode << std::endl;
+            game.outputString.push_back("chmod: Invalid mode: " + mode);
         }
     }
 }
@@ -299,36 +299,19 @@ void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
 
 void CommandProcessor::cmd_sudo(const std::vector<std::string>& args) {
     if (args.size() < 2) {
-        game.outputString << "sudo: missing command" << std::endl;
+        game.outputString.push_back("sudo: missing command");
         return;
     }
+    game.currentState = ShellState::WAITING_PASSWORD;
 
-    game.outputString << "[sudo] password for player: ";
-    std::string input_password;
-    std::getline(std::cin, input_password);
-
-    // 設定されたパスワードと一致するかチェック
-    if (input_password == game.getSudoPassword()) {
-        // --- 権限昇格 ---
-        game.setSuperUser(true); // 管理者モードフラグをON
-
-        // sudoに続くコマンドを再実行
-        std::vector<std::string> new_args(args.begin() + 1, args.end());
-        // std::string command_name = new_args[0];
-        // if(commands.count(command_name)) {
-        //     commands[command_name](new_args);
-        // }
-        this->executeInternal(new_args);
-        
-        game.setSuperUser(false); // コマンド実行後すぐに権限を戻す
-    } else {
-        game.outputString << "sudo: incorrect password" << std::endl;
-    }
+    // sudoに続くコマンドを保存
+    std::vector<std::string> new_args(args.begin() + 1, args.end());
+    game.setSudoCommand(new_args);
 }
 
 void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
     if (args.size() < 2) {
-        game.outputString << "rm: missing command" << std::endl;
+        game.outputString.push_back("rm: missing command");
         return;
     }
     Directory* trash_dir = game.getTrashDirectory();
@@ -354,7 +337,7 @@ void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
 void CommandProcessor::findHelper(Directory* dir, const std::string& name_pattern, const std::string& type_filter) {
     // 権限チェック
     if (!dir->checkPerm(game.isSuperUser(), PERM_READ)) {
-        game.outputString << "find: '" << getNodeFullPath(dir) << "': Permission denied" << std::endl;
+        game.outputString.push_back("find: '" + getNodeFullPath(dir) + "': Permission denied");
         return;
     }
 
@@ -372,7 +355,7 @@ void CommandProcessor::findHelper(Directory* dir, const std::string& name_patter
 
         // 両方マッチしたらパスを出力
         if (name_match && type_match) {
-            game.outputString << getNodeFullPath(child) << std::endl;
+            game.outputString.push_back(getNodeFullPath(child));
         }
 
         // 子がディレクトリなら再帰
@@ -385,7 +368,7 @@ void CommandProcessor::findHelper(Directory* dir, const std::string& name_patter
 
 void CommandProcessor::cmd_find(const std::vector<std::string>& args){
     if (args.size() < 2) {
-        game.outputString << "find: missing path operand" << std::endl;
+        game.outputString.push_back("find: missing path operand");
         return;
     }
     
@@ -412,7 +395,7 @@ void CommandProcessor::cmd_find(const std::vector<std::string>& args){
     // 探索開始
     auto start_nodes = game.resolvePaths(search_path);
     if (start_nodes.empty()) {
-        game.outputString << "find: '" << search_path << "': No such file or directory" << std::endl;
+        game.outputString.push_back("find: '" + search_path + "': No such file or directory");
         return;
     }
 
@@ -428,7 +411,7 @@ void CommandProcessor::cmd_find(const std::vector<std::string>& args){
             bool type_match = (type_filter != "d"); 
             
             if (name_match && type_match) {
-                game.outputString << getNodeFullPath(node) << std::endl;
+                game.outputString.push_back(getNodeFullPath(node));
             }
         }
     }
@@ -439,11 +422,11 @@ void CommandProcessor::cmd_find(const std::vector<std::string>& args){
 // ★ 新規
 void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
     if (args.size() < 2) {
-        game.outputString << "grep: missing pattern" << std::endl;
+        game.outputString.push_back("grep: missing pattern");
         return;
     }
     if (args.size() < 3) {
-        game.outputString << "grep: missing file operand" << std::endl;
+        game.outputString.push_back("grep: missing file operand");
         return;
     }
 
@@ -458,13 +441,13 @@ void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
     for (const std::string& path : file_paths) {
         auto nodes = game.resolvePaths(path);
         if (nodes.empty()) {
-            game.outputString << "grep: " << path << ": No such file or directory" << std::endl;
+            game.outputString.push_back("grep: " + path + ": No such file or directory");
             continue;
         }
 
         for (FileSystemNode* node : nodes) {
             if (dynamic_cast<Directory*>(node)) {
-                game.outputString << "grep: " << node->name << ": is a directory" << std::endl;
+                game.outputString.push_back("grep: " + node->name + ": is a directory");
                 continue;
             }
             
@@ -475,7 +458,7 @@ void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
             }
             
             if (!file->checkPerm(game.isSuperUser(), PERM_READ)) {
-                game.outputString << "grep: " << node->name << ": Permission denied" << std::endl;
+                game.outputString.push_back("grep: " + node->name + ": Permission denied");
                 continue;
             }
 
@@ -486,9 +469,9 @@ void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
                 // std::string::find でパターンが含まれるかチェック
                 if (line.find(pattern) != std::string::npos) {
                     if (print_filename) {
-                        game.outputString << node->name << ":";
+                        game.outputString.push_back(node->name + ":");
                     }
-                    game.outputString << line << std::endl;
+                    game.outputString.push_back(line);
                 }
             }
         }
@@ -498,7 +481,7 @@ void CommandProcessor::cmd_grep(const std::vector<std::string>& args) {
 void CommandProcessor::cmd_mv(const std::vector<std::string>& args) {
     // 引数が3未満（mv, src, dest）の場合はエラー
     if (args.size() < 3) {
-        game.outputString << "mv: missing destination file operand" << std::endl;
+        game.outputString.push_back("mv: missing destination file operand");
         return;
     }
 
@@ -508,13 +491,13 @@ void CommandProcessor::cmd_mv(const std::vector<std::string>& args) {
 
     // 移動先が存在しない、または複数見つかった場合はエラー
     if (dest_nodes.size() != 1) {
-        game.outputString << "mv: target '" << dest_path << "' is not a directory or does not exist." << std::endl;
+        game.outputString.push_back("mv: target '" + dest_path + "' is not a directory or does not exist.");
         return;
     }
     // 移動先がディレクトリでない場合はエラー
     Directory* dest_dir = dynamic_cast<Directory*>(dest_nodes.front());
     if (!dest_dir) {
-        game.outputString << "mv: target '" << dest_path << "' is not a directory" << std::endl;
+        game.outputString.push_back("mv: target '" + dest_path + "' is not a directory");
         return;
     }
     // (ここに移動先の権限チェックを追加)
@@ -542,18 +525,18 @@ void CommandProcessor::cmd_mv(const std::vector<std::string>& args) {
 }
 void CommandProcessor::cmd_ps(const std::vector<std::string>& args) {
     if (args.size() != 1) {
-        game.outputString << "ps: missing command" << std::endl;
+        game.outputString.push_back("ps: missing command");
         return;
     }
     for(auto const& [pid, process] : game.processList){
         if (process) {
-            game.outputString<<"id="<< process->id<<" : name="<<process->name << std::endl;
+            game.outputString.push_back("id=" + std::to_string(process->id) + " : name=" + process->name);
         }
     }
 }
 void CommandProcessor::cmd_kill(const std::vector<std::string>& args) {
     if (args.size() < 2) {
-        game.outputString << "kill: missing command" << std::endl;
+        game.outputString.push_back("kill: missing command");
         return;
     }
     
@@ -563,13 +546,13 @@ void CommandProcessor::cmd_kill(const std::vector<std::string>& args) {
             if(game.processList.count(id)){
                 game.processList.erase(id);
             }else{
-                game.outputString<<"no process : id = "<< id <<std::endl;
+                game.outputString.push_back("no process : id = " + id);
             }
         } catch (const std::invalid_argument& e) {
-            game.outputString << "kill: argument must be a process ID" << std::endl;
+            game.outputString.push_back("kill: argument must be a process ID");
             continue; // 次の引数へ
         } catch (const std::out_of_range& e) {
-            game.outputString << "kill: process ID out of range" << std::endl;
+            game.outputString.push_back("kill: process ID out of range");
             continue; // 次の引数へ
         }
         

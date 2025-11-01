@@ -1,17 +1,23 @@
 #pragma once
 #include "fileSystem.hpp" 
 #include "Process.hpp"
-
+#include "../input.hpp"
 #include <sstream>
 #include <string>
 #include <vector>
 #include <map>
 #include <memory> // std::unique_ptr
 
+enum class ShellState { PROMPT, WAITING_PASSWORD };
 class ShellGame {
 public:
     ShellGame(); // コンストラクタでファイルシステムを構築
-    void run(); // メインループを実行
+    std::vector<std::string>& update(const std::string& input); // メインループを実行
+
+    ShellState currentState = ShellState::PROMPT;
+    std::string currentInputBuffer; // リアルタイム入力バッファ
+    // ...
+    void submitPassword(const std::string& password);
 
     Directory* getCurrentDirectory() const { return current_directory; }
     void setCurrentDirectory(Directory* dir) { current_directory = dir; }
@@ -26,7 +32,7 @@ public:
 
     Directory* getTrashDirectory() const { return trash_directory_; }
 
-    std::stringstream outputString;//出力を一個にまとめて行う用
+    std::vector<std::string> outputString;//出力を一個にまとめて行う用
 
     int getMaxDiskSize() const { return maxDiskSize; }
     int getCurrentDiskSize() const {
@@ -46,6 +52,8 @@ public:
         return arg;
     }
     std::map<int, std::unique_ptr<Process>> processList;
+    void setSudoCommand(std::vector<std::string>& command);
+    void executeSudoCommand(const std::string& userName);
 private:
     void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
     std::unique_ptr<Directory> root; // ファイルシステムの起点
@@ -55,4 +63,7 @@ private:
     std::string sudo_password = "1234";
     int maxDiskSize = 256;
     std::map<std::string, std::string> aliasesList;
+    std::string sudoPendingCommand;//sudoの実行コマンドを後で処理するため
+    std::vector<std::string> executionHistory;
 };
+

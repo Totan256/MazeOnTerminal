@@ -3,6 +3,7 @@
 
 
 ShellGame::ShellGame() {
+    this->executionHistory.clear();
     //エイリアスの設定
     aliasesList.emplace("cd", "cd_locked");
     aliasesList.emplace("sudo", "sudo_locked");
@@ -61,24 +62,32 @@ ShellGame::ShellGame() {
     current_directory = this->root.get();
 }
 
-void ShellGame::run() {
-    CommandProcessor processor(*this);
-    std::string line;
-    std::cout << "Welcome to Command Maze. Type 'exit' to quit." << std::endl;
+std::vector<std::string>& ShellGame::update(const std::string& input) {
 
-    while (true) {
-        std::cout << current_directory->name << "> ";
-        if (!std::getline(std::cin, line)) break;
-        if (line == "exit") break;
-
-        processor.execute(line, "user");
-
-        for(auto const& [pid, process] : processList){
-            if (process) {
-                process->update();
-            }
+    if(this->currentState == ShellState::PROMPT){
+        this->executionHistory.push_back("> "+input);
+        CommandProcessor processor(*this);
+        processor.execute(input, "user");
+    }else 
+    if(this->currentState == ShellState::WAITING_PASSWORD){
+        if(input==this->sudo_password){
+            CommandProcessor processor(*this);
+            this->setSuperUser(true);
+            processor.execute(this->sudoPendingCommand, "user");
+            this->setSuperUser(false);
+        }
+        this->currentState = ShellState::PROMPT;
+    }
+    for(auto const& [pid, process] : processList){
+        if (process) {
+            process->update();
         }
     }
+    for(auto s : outputString){
+        this->executionHistory.push_back(s);
+    }
+    
+    return this->executionHistory;
 }
 
 void ShellGame::resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results) {
@@ -162,4 +171,16 @@ std::vector<FileSystemNode*> ShellGame::resolvePathsWithSymbolic(const std::stri
     }
 
     return final_results;
+}
+
+void ShellGame::setSudoCommand(std::vector<std::string>& command){
+    sudoPendingCommand = "";
+    for(auto s : command){
+        sudoPendingCommand += s + " ";
+    }
+}
+
+void ShellGame::executeSudoCommand(const std::string& userName){
+    CommandProcessor p(*this);
+    p.execute(sudoPendingCommand, userName);
 }
