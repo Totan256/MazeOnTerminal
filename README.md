@@ -1,7 +1,7 @@
 ## Maze On Terminal
 ### 概要
 C++で制作．コマンドライン・ローグライクゲーム<br>
-lsやcdといったLinuxライクなコマンドを拾いながら迷路の攻略を行う<br>
+lsやcdといったLinuxライクなコマンドを拾いながら3D迷路の攻略を行う<br>
 実行環境：windows11 (powershellを想定)
 ```
 ゲームの流れ

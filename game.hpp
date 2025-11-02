@@ -6,10 +6,13 @@
 #include <time.h>
 #include "maze.hpp"
 #include "render.hpp"
+#include "testCommand/shellGame.hpp"
+#include "shellTextEditer.hpp"
 
 typedef enum {
     GAME_STATE_START_ANIM, // スタートアニメーション中
     GAME_STATE_PLAYING,    // ゲームプレイ中
+    GAME_STATE_SHELL,      // シェル操作中
     GAME_STATE_END_ANIM,   // 終了アニメーション中
     GAME_STATE_EXIT        // 終了
 } GameState;
@@ -34,6 +37,11 @@ private:
     double animationFrame; // アニメーションのフレーム管理用
     double animationSpeed;
 
+    // シェル
+    ShellGame sgame;
+    shellTextEditer shellTextEditer;
+    std::vector<std::string> shellLog;
+
     void waitFPS(){//時間処理
         do{
             QueryPerformanceCounter(&currentTime);
@@ -41,7 +49,7 @@ private:
         }while(deltaTime < 1.0/FPS);
     }
 public:
-    Game(){
+    Game() : shellTextEditer(sgame){
         //初期数値
         const double defaultFPS = 60.0;
         const int mapSizeX = 5;
@@ -82,6 +90,9 @@ public:
         currentState = GAME_STATE_START_ANIM;
         animationFrame = 0;
 
+        //シェル
+        shellLog.clear();
+
     }
     void mainLoop() {
         // --- 共通処理 ---
@@ -112,6 +123,7 @@ public:
                 }
                 //プレイヤー操作
                 player.handleInput(&input, deltaTime, &map);
+                //マップとオブジェクト描画
                 render::setBuffer(&player, &map, &console.getGameScreenBuffer(), portalPos, portalNormal);
 
                 //ゴールポータル接触判定
@@ -122,9 +134,84 @@ public:
                     break;
                 }
 
+                //シェル操作へ移行
+                if (input.isPressed[static_cast<int>(GameAction::Interact)]){
+                    currentState = GAME_STATE_SHELL;
+                    shellTextEditer.update();
+                    shellTextEditer.reset();
+                }
+                
                 //強制終了判定
                 if (input.isPressed[static_cast<int>(GameAction::QuitGame)])
                     currentState = GAME_STATE_EXIT;
+                break;
+            }
+
+            case GAME_STATE_SHELL:{
+                render::setBuffer(&player, &map, &console.getGameScreenBuffer(), portalPos, portalNormal);
+                
+                //コマンド描画
+                {                    
+                    shellTextEditer.update();
+                    if(shellTextEditer.enterPressed){
+                        if (shellTextEditer.currentCommand=="q"){
+                            currentState = GAME_STATE_PLAYING;
+                            shellTextEditer.reset();
+                            break;
+                        }
+                        shellLog = sgame.update(shellTextEditer.currentCommand);
+                        shellTextEditer.reset();
+                    }
+                    std::string prompt;
+                    int cursorPos;
+                    if (sgame.currentState == ShellState::PROMPT) {
+                        prompt = sgame.getCurrentDirectory()->name + "> ";
+                        cursorPos = prompt.size() + shellTextEditer.cursorPos;
+                        prompt += shellTextEditer.currentCommand + " ";
+                    } else if (sgame.currentState == ShellState::WAITING_PASSWORD) {
+                        prompt = "[sudo] password: ";
+                        cursorPos = prompt.size() + shellTextEditer.cursorPos;
+                        prompt += std::string(shellTextEditer.currentCommand.length(), '*');
+                    }
+                    WORD textCol = 0x0000;
+                    WORD cursolCol = BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE;
+                    ScreenBuffer *sb = &console.getGameScreenBuffer();
+                    int x=0, y=prompt.size()/sb->width;
+                    for(int i=0; i<prompt.size(); i++){
+                        int id = x+(sb->height-y-1)*sb->width;//左下から表示
+                        sb->buffer.at(id).Char.UnicodeChar = prompt.at(i);
+                        if(i==cursorPos)
+                            sb->buffer.at(id).Attributes = cursolCol;
+                        sb->buffer.at(id).Attributes |= textCol;
+                        x++;
+                        if(x>=sb->width){
+                            x=0;
+                            y--;
+                        }
+                    }
+                    y +=  prompt.size() / sb->width;
+                    y++;
+                    for(int i=shellLog.size()-1; i>=0; i--){
+                        x=0;
+                        y += shellLog.at(i).size() / sb->width;
+                        for(int j=0; j<shellLog.at(i).size(); j++){
+                            int id = x+(sb->height-y-1)*sb->width;//左下から表示
+                            sb->buffer.at(id).Char.UnicodeChar = shellLog.at(i).at(j);
+                            x++;
+                            if(x>=sb->width){
+                                x=0;
+                                y--;
+                            }
+                        }
+                        y += shellLog.at(i).size() / sb->width;
+                        y++;
+                        if(y>=sb->height)break;
+                    }
+                }
+                //強制終了判定
+                if (input.isPressed[static_cast<int>(GameAction::QuitGame)])
+                    currentState = GAME_STATE_EXIT;
+                
                 break;
             }
 

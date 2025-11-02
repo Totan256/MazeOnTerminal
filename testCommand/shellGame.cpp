@@ -19,45 +19,47 @@ ShellGame::ShellGame() {
 
 
     // --- ② 初期設定：ファイルとディレクトリの配置 ---
-    auto floor1 = std::make_unique<Directory>("floor1", this->root.get(), PERM_READ, FileSystemNode::Owner::PLAYER);
+    auto floor1 = root->buildDirectory("floor1").withPermissions(7).build();
+    floor1->buildFile("blue_wall.data").isLarge(true).build();
+    floor1->buildFile("green_wall.data").isLarge(true).build();
+    floor1->buildFile("yellow_wall.data").isLarge(true).build();
+    floor1->buildTrapNode("floor_trap")
+                .withOwner(FileSystemNode::Owner::ROOT)
+                .withSize(50)
+                .build();
+    
     
     {// trashの用意　メンバ変数にしてアクセスできるように
-        auto trash = std::make_unique<Directory>(".trash", this->root.get(), PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
-        this->trash_directory_ = trash.get();
-        this->root->addChild(std::move(trash));
-        // trashに妨害ノード追加
-        auto trap = std::make_unique<TrapNode>(".ls_trap", trash.get(), 50, FileSystemNode::Owner::ROOT);
-        this->trash_directory_->addChild(std::move(trap));
+        this->trash_directory_ = root->buildDirectory(".trash").
+                withOwner(FileSystemNode::Owner::ROOT)
+                .build();
+        this->trash_directory_->buildTrapNode(".trash_trap")
+                .withOwner(FileSystemNode::Owner::ROOT)
+                .withSize(50)
+                .build();
     }
-    {//ログファイル
-        auto log = std::make_unique<File>("log.txt", this->root.get(), "", 0, 4, FileSystemNode::Owner::ROOT); // 権限なし
-        this->logText = log.get();
-        this->root->addChild(std::move(log));
-    }
+    //ログファイル
+    this->logText = root->buildFile("log.txt")
+                        .withPermissions(PERM_NONE)
+                        .withOwner(FileSystemNode::Owner::ROOT)
+                        .build();
+    
     {//初期から所持しているコマンド
-        auto ls = std::make_unique<Executable>("ls", this->root.get(), PERM_EXECUTE,4 , FileSystemNode::Owner::PLAYER);
-        this->root->addChild(std::move(ls));
-    }{
-        auto cat = std::make_unique<Executable>("cat", this->root.get(), PERM_EXECUTE,4 , FileSystemNode::Owner::PLAYER);
-        this->root->addChild(std::move(cat));
-    }
-    
-    // ファイルを作成してfloor1に追加
-    auto readme = std::make_unique<File>("readme.txt", this->root.get(),
-        "Escape from this maze.\nUse 'ls -l' to see details.\nUse 'chmod +x' to run commands.",
-        PERM_READ | PERM_WRITE, 8, FileSystemNode::Owner::PLAYER);
-    
-    auto secret = std::make_unique<File>("secret.txt", this->root.get(),
-        "The password is '1234'.", 0, 4, FileSystemNode::Owner::PLAYER); // 権限なし
+        root->buildExecutable("ls", "ls").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("cat", "cat").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("sudo", "sudo").withPermissions(PERM_EXECUTE).build();
+    }    
 
-    auto run_cmd = std::make_unique<Executable>("run.sh", this->root.get(), PERM_READ, 16, FileSystemNode::Owner::PLAYER); // 実行権限なし
+    root->buildFile("readme.txt")
+            .withContent(std::vector<std::string>{"Escape from this maze.", "Use 'ls -l' to see details.", "Use 'chmod +x' to run commands."})
+            .withSize(8)
+            .build();
 
-    this->root->addChild(std::move(readme));
-    this->root->addChild(std::move(secret));
-    this->root->addChild(std::move(run_cmd));
+    root->buildFile("secret.txt")
+            .withContent("The password is '1234'.")
+            .withPermissions(PERM_NONE)
+            .build();
 
-    this->root->addChild(std::move(floor1));
-    
     // ゲーム開始時の現在地を設定
     current_directory = this->root.get();
 }

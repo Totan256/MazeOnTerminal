@@ -1,4 +1,6 @@
 #include "input.hpp"
+#include <vector>
+
 const std::array<int, static_cast<size_t>(GameAction::Count)> InputManager::keyMap = {
         'W',            //ACTION_MOVE_FORWARD
         'S',            //ACTION_MOVE_BACK
@@ -6,7 +8,7 @@ const std::array<int, static_cast<size_t>(GameAction::Count)> InputManager::keyM
         'D',            //ACTION_MOVE_RIGHT
         VK_SPACE,       //ACTION_JUMP
         'E',            //ACTION_INTERACT
-        VK_RETURN       //ACTION_QUIT_GAME// Enterキー
+        VK_ESCAPE       //ACTION_QUIT_GAME// Escapeキー
 };
 
 void InputManager::waitKeyUp(GameAction action){
@@ -58,4 +60,49 @@ void InputManager::reset(){
         currentState.isPressed[i] = false;
         previousDownStates[i] = false;
     }
+}
+
+
+TextInputManager::TextInputManager() {
+    hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+}
+
+TextInputResult TextInputManager::update() {
+    TextInputResult result;
+    DWORD numEvents = 0;
+    GetNumberOfConsoleInputEvents(hConsoleInput, &numEvents);
+
+    if (numEvents == 0) return result; // 入力がなければ即終了
+
+    std::vector<INPUT_RECORD> inputBuffer(numEvents);
+    DWORD numEventsRead = 0;
+    ReadConsoleInput(hConsoleInput, inputBuffer.data(), numEvents, &numEventsRead);
+
+    for (DWORD i = 0; i < numEventsRead; ++i) {
+        if (inputBuffer[i].EventType == KEY_EVENT &&
+            inputBuffer[i].Event.KeyEvent.bKeyDown)
+        {
+            // キーが押されたイベントのみ処理
+            WORD keyCode = inputBuffer[i].Event.KeyEvent.wVirtualKeyCode;
+            WCHAR unicodeChar = inputBuffer[i].Event.KeyEvent.uChar.UnicodeChar;
+
+            if (keyCode == VK_RETURN) {
+                result.enterPressed = true;
+            } else if (keyCode == VK_BACK) {
+                result.backspacePressed = true;
+            } else if (keyCode == VK_LEFT) {
+                result.arrowLeftPressed = true;
+            } else if (keyCode == VK_RIGHT) {
+                result.arrowRightPressed = true;
+            } else if (keyCode == VK_UP) {
+                result.arrowUpPressed = true;
+            } else if (keyCode == VK_DOWN) {
+                result.arrowDownPressed = true;
+            } else if (unicodeChar >= 32) {
+                char c = static_cast<char>(unicodeChar); 
+                result.typedChars += c;
+            }
+        }
+    }
+    return result;
 }

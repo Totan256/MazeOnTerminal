@@ -1,0 +1,28 @@
+# CMakeの最低バージョンを指定
+cmake_minimum_required(VERSION 3.10)
+
+# プロジェクト名を定義 (任意の名前に変更可能)
+project(ShellGame)
+
+# .batファイルで指定されていた実行ファイル名
+set(EXECUTABLE_NAME maze_on_terminal)
+
+# --- ユーザー様の要求 ---
+# 実行ファイル(.exe)の出力先を
+# ワークディレクトリ（=プロジェクトのルート）に設定します。
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# 実行ファイルと、コンパイルするソースファイルを指定
+add_executable(${EXECUTABLE_NAME}
+    main.cpp
+    input.cpp
+    maze.cpp
+    testCommand/shellGame.cpp
+    testCommand/fileSystem.cpp
+    testCommand/commandProcessor.cpp
+    testCommand/Process.cpp
+)
+
+# (オプション) C++のバージョンを明示的に指定する場合
+# set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED True)
