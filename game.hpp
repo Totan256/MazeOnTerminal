@@ -51,7 +51,7 @@ private:
 public:
     Game() : shellTextEditer(sgame){
         //初期数値
-        const double defaultFPS = 60.0;
+        const double defaultFPS = 30.0;
         const int mapSizeX = 5;
         const int mapSizeY = 5;
         const vec::vec3 portalStartNormal = {1., 0., 0.0};

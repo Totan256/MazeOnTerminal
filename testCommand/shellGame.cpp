@@ -47,8 +47,12 @@ ShellGame::ShellGame() {
     {//初期から所持しているコマンド
         root->buildExecutable("ls", "ls").withPermissions(PERM_EXECUTE).build();
         root->buildExecutable("cat", "cat").withPermissions(PERM_EXECUTE).build();
-        root->buildExecutable("sudo", "sudo").withPermissions(PERM_EXECUTE).build();
-    }    
+        root->buildExecutable("rm", "rm").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("mv", "mv").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("find", "find").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("pwd", "pwd").withPermissions(PERM_EXECUTE).build();
+        root->buildExecutable("chmod", "chmod").withPermissions(PERM_EXECUTE).build();
+    }
 
     root->buildFile("readme.txt")
             .withContent(std::vector<std::string>{"Escape from this maze.", "Use 'ls -l' to see details.", "Use 'chmod +x' to run commands."})

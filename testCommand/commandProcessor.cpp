@@ -162,10 +162,6 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
             // ノードがディレクトリか確認
             Directory* target_dir = dynamic_cast<Directory*>(node);
             if (target_dir) { // まず、ディレクトリかどうかを確認
-                if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
-                    output.push_back("ls: cannot open directory '" + node->name + "': Permission denied");
-                    continue;
-                }
                 bool trap_found = false;
                 for (auto child : target_dir->getChildren()) {
                     if (dynamic_cast<TrapNode*>(child)) {
@@ -176,6 +172,10 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
                 if (trap_found) {
                     game.outputString.push_back("ls: Too much content to display");
                     return;
+                }
+                if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
+                    output.push_back("ls: cannot open directory '" + node->name + "': Permission denied");
+                    continue;
                 }
                 std::vector<std::string> result = target_dir->listContents(long_format, all_files);
                 for(auto s : result)
@@ -312,7 +312,13 @@ void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
     const std::string& filename = args[2];
     auto nodes = game.resolvePaths(args[2]);
 
-    for(FileSystemNode* node :nodes){        
+    for(FileSystemNode* node :nodes)
+        if(dynamic_cast<TrapNode*>(node)){
+            game.outputString.push_back("chmod: Too many files");
+            return;
+        }
+
+    for(FileSystemNode* node :nodes){
         if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
             game.outputString.push_back("chmod: cannot access '" + node->name + "': Permission denied");
             continue;
@@ -366,6 +372,11 @@ void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
     if (!trash_dir) return; // ゴミ箱がなければ何もしない
     for(int i=1; i<args.size(); i++){
         auto nodes = game.resolvePaths(args[i]);
+        for(FileSystemNode* node :nodes)
+            if(dynamic_cast<TrapNode*>(node)){
+                game.outputString.push_back("rm: "+ args[i] + ": Too many files");
+                return;
+            }
         for(FileSystemNode* node : nodes){
             if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
                 game.outputString.push_back("rm: cannot remove '" + node->name + "': Permission denied");
