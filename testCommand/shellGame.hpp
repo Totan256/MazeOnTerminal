@@ -16,8 +16,6 @@ public:
 
     ShellState currentState = ShellState::PROMPT;
     std::string currentInputBuffer; // リアルタイム入力バッファ
-    // ...
-    void submitPassword(const std::string& password);
 
     Directory* getCurrentDirectory() const { return current_directory; }
     void setCurrentDirectory(Directory* dir) { current_directory = dir; }
@@ -55,7 +53,9 @@ public:
     void setSudoCommand(std::vector<std::string>& command);
     void executeSudoCommand(const std::string& userName);
 private:
-    void resolvePathsRecursive(const std::vector<std::string>& parts, size_t index, std::vector<FileSystemNode*>& current_nodes, std::vector<FileSystemNode*>& results);
+    void resolvePathsRecursive(const std::vector<std::string>& parts, 
+        size_t index, std::vector<FileSystemNode*>& current_nodes,
+        std::vector<FileSystemNode*>& results);
     std::unique_ptr<Directory> root; // ファイルシステムの起点
     Directory* current_directory;    // プレイヤーの現在地
     Directory* trash_directory_ = nullptr; // trash

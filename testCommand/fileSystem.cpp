@@ -10,8 +10,10 @@ std::string FileSystemNode::getPermissionsString() const {
 }
 
 
-Directory::Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner)
-    : FileSystemNode(name, parent, permissions, 0, owner) {} // ディレクトリは常にrwx
+Directory::Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner, bool has_wildcard_trap)
+    : FileSystemNode(name, parent, permissions, 0, owner) {
+    this->has_wildcard_trap = has_wildcard_trap;
+}
 
 void Directory::addChild(std::unique_ptr<FileSystemNode> child) {
     children.push_back(std::move(child));
@@ -63,13 +65,20 @@ bool matchWildCard(const char* str, const char* pattern) {
 }
 
 std::vector<FileSystemNode*> Directory::findChildren(const std::string& childName) {
-    std::vector<FileSystemNode*> v;
+    std::vector<FileSystemNode*> result;
+    if (childName.find('*') != std::string::npos && this->has_wildcard_trap) {
+        throw WildcardTrapException();
+    }
     for (const auto& child : children) {
+        //隠しファイルチェック
+        if (childName.front() != '.' && child->name.front() == '.') {
+            continue;
+        }
         if (matchWildCard(child->name.c_str(), childName.c_str())) {
-            v.push_back(child.get());
+            result.push_back(child.get());
         }
     }
-    return v;
+    return result;
 }
 void Directory::removeChild(const std::string& childName) {
     auto new_end = std::remove_if(children.begin(), children.end(), 
@@ -129,15 +138,8 @@ Executable* ExecutableBuilder::build() {
 }
 
 Directory* DirectoryBuilder::build() {
-    auto dir = std::make_unique<Directory>(name_, parent_, perms_, owner_);
+    auto dir = std::make_unique<Directory>(name_, parent_, perms_, owner_, has_wildcard_trap_);
     Directory* dir_ptr = dir.get();
     parent_->addChild(std::move(dir));
     return dir_ptr;
-}
-
-TrapNode* TrapNodeBuilder::build(){
-    auto dir = std::make_unique<TrapNode>(name_,parent_,size_,owner_);
-    TrapNode* trap_ptr = dir.get();
-    parent_->addChild(std::move(dir));
-    return trap_ptr;
 }

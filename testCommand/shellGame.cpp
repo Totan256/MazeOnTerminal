@@ -9,7 +9,7 @@ ShellGame::ShellGame() {
     aliasesList.emplace("sudo", "sudo_locked");
     
     // --- ① 起点：「ルートディレクトリ」の準備 ---
-    this->root = std::make_unique<Directory>("/", nullptr, PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT);
+    this->root = std::make_unique<Directory>("/", nullptr, PERM_READ | PERM_WRITE | PERM_EXECUTE, FileSystemNode::Owner::ROOT, false);
     
     //初期プロセスの追加
     int mazeMasterID = 0;
@@ -19,24 +19,28 @@ ShellGame::ShellGame() {
 
 
     // --- ② 初期設定：ファイルとディレクトリの配置 ---
-    auto floor1 = root->buildDirectory("floor1").withPermissions(7).build();
+    auto floor1 = root->buildDirectory("floor1")
+            .withPermissions(7)
+            .withWildTrap()
+            .build();
     floor1->buildFile("blue_wall.data").isLarge(true).build();
     floor1->buildFile("green_wall.data").isLarge(true).build();
     floor1->buildFile("yellow_wall.data").isLarge(true).build();
-    floor1->buildTrapNode("floor_trap")
-                .withOwner(FileSystemNode::Owner::ROOT)
-                .withSize(50)
-                .build();
+    // floor1->buildTrapNode("floor_trap")
+    //             .withOwner(FileSystemNode::Owner::ROOT)
+    //             .withSize(50)
+    //             .build();
     
     
     {// trashの用意　メンバ変数にしてアクセスできるように
         this->trash_directory_ = root->buildDirectory(".trash").
                 withOwner(FileSystemNode::Owner::ROOT)
+                .withWildTrap()
                 .build();
-        this->trash_directory_->buildTrapNode(".trash_trap")
-                .withOwner(FileSystemNode::Owner::ROOT)
-                .withSize(50)
-                .build();
+        // this->trash_directory_->buildTrapNode(".trash_trap")
+        //         .withOwner(FileSystemNode::Owner::ROOT)
+        //         .withSize(50)
+        //         .build();
     }
     //ログファイル
     this->logText = root->buildFile("log.txt")

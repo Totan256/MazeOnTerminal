@@ -88,56 +88,61 @@ void CommandProcessor::execute(const std::string& input_line, const std::string&
     }    
 }
 bool CommandProcessor::executeInternal(const std::vector<std::string>& args){
-    std::string command = args.front();
-    //最初のコマンド名自体にワイルドカードが含まれていたら実行しない
-    if (command.find('*') != std::string::npos) {
-        game.outputString.push_back("Command not found: " + command);
-        return false;
-    }
-    //エイリアス
-    command = game.aliasConvert(command);
-    //組み込みコマンドの実行
-    if(command=="cd"){
-        cmd_cd(args);
-        return true;
-    }else if(command=="sudo"){
-        cmd_sudo(args);
-        return true;
-    }else if (command == "cd_locked" || command == "sudo_locked") {
-        game.outputString.push_back("Command '" + args.front() + "' is locked.");
-        return true;
-    }
+    try{
+        std::string command = args.front();
+        //最初のコマンド名自体にワイルドカードが含まれていたら実行しない
+        if (command.find('*') != std::string::npos) {
+            game.outputString.push_back("Command not found: " + command);
+            return false;
+        }
+        //エイリアス
+        command = game.aliasConvert(command);
+        //組み込みコマンドの実行
+        if(command=="cd"){
+            cmd_cd(args);
+            return true;
+        }else if(command=="sudo"){
+            cmd_sudo(args);
+            return true;
+        }else if (command == "cd_locked" || command == "sudo_locked") {
+            game.outputString.push_back("Command '" + args.front() + "' is locked.");
+            return true;
+        }
 
-    //パス解析（シンボリックリンク）
-    auto nodes = game.resolvePathsWithSymbolic(command);
-    if (nodes.empty()) {
-        game.outputString.push_back("Command not found: " + command);
-        return false;
-    }
-    if(nodes.size()!=1){
-        game.outputString.push_back("cant use this type");
-        return false;
-    }
-    FileSystemNode* command_node = nodes.front();
-    //確認
-    Executable* exec_file = dynamic_cast<Executable*>(command_node);
-    if (!exec_file) {//実行ファイルかどうか確認
-        game.outputString.push_back(command + ": is not an executable file.");
-        return false;
-    }
-    if (!exec_file->checkPerm(game.isSuperUser(), PERM_EXECUTE)) {//権限チェック
-        game.outputString.push_back("Permission denied: " + command);
-        return false;
-    }    
+        //パス解析（シンボリックリンク）
+        auto nodes = game.resolvePathsWithSymbolic(command);
+        if (nodes.empty()) {
+            game.outputString.push_back("Command not found: " + command);
+            return false;
+        }
+        if(nodes.size()!=1){
+            game.outputString.push_back("cant use this type");
+            return false;
+        }
+        FileSystemNode* command_node = nodes.front();
+        //確認
+        Executable* exec_file = dynamic_cast<Executable*>(command_node);
+        if (!exec_file) {//実行ファイルかどうか確認
+            game.outputString.push_back(command + ": is not an executable file.");
+            return false;
+        }
+        if (!exec_file->checkPerm(game.isSuperUser(), PERM_EXECUTE)) {//権限チェック
+            game.outputString.push_back("Permission denied: " + command);
+            return false;
+        }    
 
-    //実行
-    if (commands.count(exec_file->commandName)) {
-        commands[exec_file->commandName](args); // Mapから関数を呼び出す
-        //ログテキストのサイズ増加
-    } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
-        game.outputString.push_back("Execution failed: internal error for command '" + command + "'");
+        //実行
+        if (commands.count(exec_file->commandName)) {
+            commands[exec_file->commandName](args); // Mapから関数を呼び出す
+            //ログテキストのサイズ増加
+        } else {// ゲーム内にファイルはあるが、C++側に実装がない場合
+            game.outputString.push_back("Execution failed: internal error for command '" + command + "'");
+        }
+        return true;
+    }catch(const WildcardTrapException& e){
+        game.outputString.push_back("Too much content to execute command");
+        return false;
     }
-    return true;
 }
 
 // --- 各コマンドの処理 ---
@@ -162,16 +167,7 @@ void CommandProcessor::cmd_ls(const std::vector<std::string>& args) {
             // ノードがディレクトリか確認
             Directory* target_dir = dynamic_cast<Directory*>(node);
             if (target_dir) { // まず、ディレクトリかどうかを確認
-                bool trap_found = false;
                 for (auto child : target_dir->getChildren()) {
-                    if (dynamic_cast<TrapNode*>(child)) {
-                        trap_found = true;
-                        break;
-                    }
-                }
-                if (trap_found) {
-                    game.outputString.push_back("ls: Too much content to display");
-                    return;
                 }
                 if(!target_dir->checkPerm(game.isSuperUser(), PERM_READ)){
                     output.push_back("ls: cannot open directory '" + node->name + "': Permission denied");
@@ -250,30 +246,26 @@ void CommandProcessor::cmd_cat(const std::vector<std::string>& args) {
         }
 
         for(FileSystemNode* node : nodes){
+            // ディレクトリの場合
+            if (dynamic_cast<Directory*>(node)) {
+                output.push_back("cat: " + node->name + ": Is a directory");
+                continue;
+            }
             File* file = dynamic_cast<File*>(node);
             // FileでもDirectoryでもない場合 (Executableなど)
-            if(!file){
-                if(dynamic_cast<TrapNode*>(node)){
-                    game.outputString.push_back("cat: Too much content to display");
-                    return;
-                }
+            if(!file){\
                 output.push_back("cat: " + node->name + ": Is not a regular file");
-                continue; // ★ return せずに次のノードへ
+                continue;
             } 
             if(file->isLarge){
                game.outputString.push_back("cat: Too much content to display");
                return;
             }
-            // ディレクトリの場合
-            if (dynamic_cast<Directory*>(node)) {
-                output.push_back("cat: " + node->name + ": Is a directory");
-                continue; // ★ return せずに次のノードへ
-            }
-                       
+            
             // 権限チェック（エラーメッセージ追加）
             if(!file->checkPerm(game.isSuperUser(), PERM_READ)){
                 output.push_back("cat: " + node->name + ": Permission denied");
-                continue; // ★ return せずに次のノードへ
+                continue;
             }            
             output.push_back("["+file->name+"]");
             for(auto line : file->content)
@@ -311,12 +303,6 @@ void CommandProcessor::cmd_chmod(const std::vector<std::string>& args) {
     const std::string& mode_str = args[1];
     const std::string& filename = args[2];
     auto nodes = game.resolvePaths(args[2]);
-
-    for(FileSystemNode* node :nodes)
-        if(dynamic_cast<TrapNode*>(node)){
-            game.outputString.push_back("chmod: Too many files");
-            return;
-        }
 
     for(FileSystemNode* node :nodes){
         if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
@@ -372,11 +358,6 @@ void CommandProcessor::cmd_rm(const std::vector<std::string>& args){
     if (!trash_dir) return; // ゴミ箱がなければ何もしない
     for(int i=1; i<args.size(); i++){
         auto nodes = game.resolvePaths(args[i]);
-        for(FileSystemNode* node :nodes)
-            if(dynamic_cast<TrapNode*>(node)){
-                game.outputString.push_back("rm: "+ args[i] + ": Too many files");
-                return;
-            }
         for(FileSystemNode* node : nodes){
             if(!node->checkPerm(game.isSuperUser(), PERM_WRITE)){//権限チェック
                 game.outputString.push_back("rm: cannot remove '" + node->name + "': Permission denied");

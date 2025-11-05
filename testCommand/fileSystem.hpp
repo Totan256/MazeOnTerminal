@@ -5,6 +5,7 @@
 #include <sstream>
 #include <set>
 #include <vector>
+#include <stdexcept>
 #include <memory>   // std::unique_ptr
 #include <cstdint>  // uint8_t
 #include <algorithm>
@@ -77,16 +78,6 @@ public:
     int getSize() const override {
         return this->size;
     }
-};
-
-//実行妨害ノード
-class TrapNode : public FileSystemNode {
-public:
-    TrapNode(const std::string& name, Directory* parent, int size,Owner owner)
-        // サイズ0, 権限なし
-        : FileSystemNode(name, parent, PERM_NONE, size, owner) {}
-    
-    int getSize() const override { return this->size; }
 };
 
 // 実行可能なコマンドファイル
@@ -174,22 +165,6 @@ private:
     int size_ = 4;
 };
 
-class TrapNodeBuilder : public NodeBuilder<TrapNodeBuilder, TrapNode> {
-public:
-    TrapNodeBuilder(Directory* parent, std::string name)
-        : NodeBuilder(parent, name) {}
-
-    TrapNodeBuilder& withSize(int size) {
-        size_ = size;
-        return *this;
-    }
-
-    // 最終的なオブジェクトを構築し、親に追加する
-    TrapNode* build();
-private:
-    int size_ = 100;
-};
-
 
 // --- Executable 専用ビルダー ---
 class ExecutableBuilder : public NodeBuilder<ExecutableBuilder, Executable> {
@@ -218,15 +193,27 @@ public:
         : NodeBuilder(parent, name) {
         perms_ = PERM_READ | PERM_EXECUTE; // Directory のデフォルト権限
     }
-
+    bool has_wildcard_trap_ = false;
+    DirectoryBuilder& withWildTrap(){
+        has_wildcard_trap_=true;
+        return *this;
+    }
     Directory* build();
+};
+
+//ワイルドカード停止用例外クラス
+class WildcardTrapException : public std::exception {
+public:
+    const char* what() const noexcept override {
+        return "Wildcard trap triggered";
+    }
 };
 
 // ファイルやディレクトリを格納するコンテナ
 class Directory : public FileSystemNode {
 public:
     // コンストラクタ (ルートディレクトリの場合、親はnullptr)
-    Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner);
+    Directory(const std::string& name, Directory* parent, uint8_t permissions, Owner owner, bool has_wildcard_trap);
 
     int getSize() const override {
         int total_size = size; // ディレクトリ自体のサイズは通常0
@@ -261,10 +248,7 @@ public:
     DirectoryBuilder buildDirectory(const std::string& name) {
         return DirectoryBuilder(this, name);
     }
-    TrapNodeBuilder buildTrapNode(const std::string& name){
-        return TrapNodeBuilder(this,name);
-    }
-
+    bool has_wildcard_trap=false;
 private:
     std::vector<std::unique_ptr<FileSystemNode>> children;
 };
