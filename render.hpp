@@ -28,25 +28,22 @@ namespace render
                 vec::rotate(rayDirection.x, rayDirection.z, player->getDir().x);//Yaw回転 (Y軸を中心にXとZを回転)                
                 
                 rayCast::RaycastResult mapResult = rayCast::map(map, rayPosition, rayDirection, 0.4, 0.8);
-                
-                WORD col = design::map(mapResult.objectID, mapResult.hitSurface);
+                CHAR_INFO pixelData = design::map(mapResult.objectID, mapResult.hitSurface);
 
-                WCHAR s = L' ';
                 vec::vec3 encountPos;
                 double portalDist = rayCast::sprite(rayPosition,rayDirection, portalPos, portalNormal, &encountPos);
                 if(0 <= portalDist && portalDist < mapResult.distance){//壁よりポータルが近い
                     vec::vec2 portalUV;
-                    //s = '@';//test
                     rayCast::calcUV(encountPos, portalPos, portalNormal, &portalUV);
                     //if(portalUV.y < 0.0){
                     if(design::portal(portalUV) != 0){
-                        col = BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED;
+                        pixelData.Attributes = BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED;
+                        pixelData.Char.UnicodeChar = L' ';
                     }
                 }
                 
                 int id = y * sb->width + x;
-                sb->buffer[id].Char.UnicodeChar = s;
-                sb->buffer[id].Attributes = col;
+                sb->buffer[id] = pixelData;
             }
         }
     }

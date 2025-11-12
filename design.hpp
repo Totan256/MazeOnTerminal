@@ -14,21 +14,26 @@ namespace design
         return 0;
     }
 
-    WORD map(int numFlag, int sideFlag){
+    CHAR_INFO map(int numFlag, int sideFlag){
+        CHAR_INFO result;
         WORD col;
+        WCHAR s = L' ';
         {
             switch (numFlag) {
                 case -1://天井
                     col = 0x0000; //black
+                    s=L'#';
                     break;
                 case -2://床
                     col = 0x0000 | BACKGROUND_INTENSITY; //black
+                    s=L'▓';
                     break;
                 case 1:
                 case 2:
                 case 3:
                 case 4:
                 case 5:
+                    s=L'P';
                     if(sideFlag==1)
                         col = col = BACKGROUND_BLUE | BACKGROUND_INTENSITY;
                     else
@@ -41,7 +46,9 @@ namespace design
                     break;
             }
         }
-        return col;
+        result.Char.UnicodeChar = s;
+        result.Attributes = col;
+        return result;
     }
 
     double hash_1d(double n){

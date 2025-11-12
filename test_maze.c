@@ -246,8 +246,8 @@ void printColoredBinaryMap(const int* binaryMap, int bWidth, int bHeight) {
 int main() {
     srand((unsigned int)time(NULL));
 
-    int mazeWidth = 15;
-    int mazeHeight = 15;
+    int mazeWidth = 5;
+    int mazeHeight = 5;
 
     int binaryMapWidth = mazeWidth * 2 + 1;
     int binaryMapHeight = mazeHeight * 2 + 1;
