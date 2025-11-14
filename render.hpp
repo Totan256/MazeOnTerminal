@@ -28,7 +28,7 @@ namespace render
                 vec::rotate(rayDirection.x, rayDirection.z, player->getDir().x);//Yaw回転 (Y軸を中心にXとZを回転)                
                 
                 rayCast::RaycastResult mapResult = rayCast::map(map, rayPosition, rayDirection, 0.4, 0.8);
-                CHAR_INFO pixelData = design::map(mapResult.objectID, mapResult.hitSurface);
+                col::CHAR_INF pixelData = design::map(mapResult.objectID, mapResult.hitSurface);
 
                 vec::vec3 encountPos;
                 double portalDist = rayCast::sprite(rayPosition,rayDirection, portalPos, portalNormal, &encountPos);
@@ -37,8 +37,8 @@ namespace render
                     rayCast::calcUV(encountPos, portalPos, portalNormal, &portalUV);
                     //if(portalUV.y < 0.0){
                     if(design::portal(portalUV) != 0){
-                        pixelData.Attributes = BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED;
-                        pixelData.Char.UnicodeChar = L' ';
+                        pixelData.back = {col::WHITE, false};
+                        pixelData.charactor = L' ';
                     }
                 }
                 
@@ -55,10 +55,8 @@ namespace render
         for(int y=0; y<dest->height; y++){
             for(int x=0; x<dest->width; x++){
                 int destId = x+y*dest->width;
-                CHAR_INFO fromCharInfo, toCharInfo;
-                CHAR_INFO exceptionCharInfo;
-                exceptionCharInfo.Char.UnicodeChar = L' ';
-                exceptionCharInfo.Attributes = 0; // 黒
+                col::CHAR_INF fromCharInfo, toCharInfo;
+                col::CHAR_INF exceptionCharInfo(L' ',{col::BLACK,false},{col::BLACK,false});
                 
                 if(x < to->width && y < to->height && toIsUsable){
                     int toId = x+y*to->width;

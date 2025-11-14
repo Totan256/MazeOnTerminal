@@ -173,16 +173,16 @@ public:
                         cursorPos = prompt.size() + shellTextEditer.cursorPos;
                         prompt += std::string(shellTextEditer.currentCommand.length(), '*');
                     }
-                    WORD textCol = 0x0000| BACKGROUND_INTENSITY;
-                    WORD cursolCol = BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE;
+                    col::CHAR_INF textCol(L' ', { col::WHITE, false }, { col::BLACK, false });
+                    col::CHAR_INF cursolCol(L' ', { col::WHITE, false }, { col::BLACK, false });
                     ScreenBuffer *sb = &console.getGameScreenBuffer();
                     int x=0, y=prompt.size()/sb->width;
                     for(int i=0; i<prompt.size(); i++){
                         int id = x+(sb->height-y-1)*sb->width;//左下から表示
-                        sb->buffer.at(id).Char.UnicodeChar = prompt.at(i);
-                        sb->buffer.at(id).Attributes = textCol;
+                        sb->buffer.at(id).charactor = prompt.at(i);
+                        sb->buffer.at(id)= textCol;
                         if(i==cursorPos)
-                            sb->buffer.at(id).Attributes = cursolCol;
+                            sb->buffer.at(id)= cursolCol;
                         x++;
                         if(x>=sb->width){
                             x=0;
@@ -196,8 +196,8 @@ public:
                         y += shellLog.at(i).size() / sb->width;
                         for(int j=0; j<shellLog.at(i).size(); j++){
                             int id = x+(sb->height-y-1)*sb->width;//左下から表示
-                            sb->buffer.at(id).Char.UnicodeChar = shellLog.at(i).at(j);
-                            sb->buffer.at(id).Attributes = textCol;
+                            sb->buffer.at(id).charactor = shellLog.at(i).at(j);
+                            sb->buffer.at(id) = textCol;
                             x++;
                             if(x>=sb->width){
                                 x=0;
